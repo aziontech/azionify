@@ -98,8 +98,6 @@ def generate_azion_config(akamai_config: dict, main_setting_name: str) -> dict:
         if not edge_hostname:
             logging.warning("Edge hostname not found. Using placeholder as fallback.")
             edge_hostname = "placeholder.example.com"
-
-        logging.info(f"Edge hostname extracted: {edge_hostname}")
         
         # Step 2: Process resources
         for resource in akamai_config.get("resource", []):
@@ -155,7 +153,6 @@ def main():
         # Write Azion configuration
         if azion_config["resources"]:
             write_terraform_file(args.output, azion_config, main_setting_name)
-            logging.info(f"Terraform configuration written to {args.output}")
         else:
             logging.warning("No compatible configuration found for conversion.")
 
