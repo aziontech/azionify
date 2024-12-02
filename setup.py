@@ -1,11 +1,10 @@
 from setuptools import setup, find_packages
-from pathlib import Path
 
 setup(
     name="azionify",
     version="1.0.0",
     description="A tool to convert Akamai Terraform configurations into Azion Terraform configurations.",
-    long_description=open("README.md").read(),
+    long_description=open("README.md",encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     author="Andre Lehdermann Silveira",
     author_email="support@azion.com",
