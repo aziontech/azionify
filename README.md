@@ -26,6 +26,8 @@ Azionify is a CLI tool that converts Akamai Terraform configurations into Azion-
 
 3. Install the required dependencies:
    ```bash
+   python -m venv env
+   source env/bin/activate
    pip install -r requirements.txt
    ```
 
