@@ -59,33 +59,6 @@ The tool will generate an Azion-compatible Terraform configuration file at the s
 
 ---
 
-## Development
-
-### Repository Structure
-
-```plaintext
-azionify/
-├── src/
-│   ├── main.py        # Entry point of the application.
-│   ├── converter.py   # Logic to convert Akamai resources to Azion.
-│   ├── writer.py      # Handles writing the Azion Terraform configuration.
-│   ├── utils.py       # Utility functions used across the application.
-│   └── __init__.py    # Marks the folder as a Python module.
-├── tests/             # Test cases for the application.
-├── requirements.txt   # Python dependencies.
-├── setup.py           # Installation script.
-└── README.md          # Project documentation.
-```
-
-### Running Tests
-
-Run unit tests to ensure everything works as expected:
-```bash
-pytest tests/
-```
-
----
-
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
