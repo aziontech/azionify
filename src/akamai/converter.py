@@ -1,15 +1,12 @@
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any
 from azion_resources import AzionResource
 from utils import clean_and_parse_json
-from akamai.mapping import MAPPING
 from akamai.converter_domain import create_domain
 from akamai.converter_main_settings import create_main_setting
 from akamai.converter_origin import create_origin
 from akamai.converter_waf import create_waf_rule
-from akamai.converter_cache_settings import create_cache_setting   
-from akamai.converter_digital_certificate import create_digital_certificate
-from akamai.converter_edge_function import create_edge_function
+from akamai.converter_cache_settings import create_cache_setting
 from akamai.converter_rules_engine import create_rule_engine
 
 
@@ -79,14 +76,14 @@ def process_resource(azion_resources: AzionResource, resource: Dict[str, Any]):
 
         # Enable main_settings -> edge_functions
         if resource["type"] == "edge_functions":
-            logging.info(f"Enabling 'edge_functions' in azion_edge_application_main_setting")
+            logging.info("Enabling 'edge_functions' in azion_edge_application_main_setting")
             main_setting_attributes = resource.get("azion_edge_application_main_setting", False)
             if not main_setting_attributes:
                 main_setting_attributes["edge_functions"] = True
 
          # Enable main_settings -> caching
         if resource["type"] == "caching":
-            logging.info(f"Enabling 'caching' in azion_edge_application_main_setting")
+            logging.info("Enabling 'caching' in azion_edge_application_main_setting")
             main_setting_attributes = resource.get("azion_edge_application_main_setting", False)
             if not main_setting_attributes:
                 main_setting_attributes["caching"] = True
@@ -125,7 +122,7 @@ def convert_akamai_to_azion(azion_resources: AzionResource, attributes: Dict[str
 
     if isinstance(rules, str):
         # Handle string references to rules (potential external configuration)
-        logging.warning(f"Rules attribute is a string reference. Converting to JSON content.")
+        logging.warning("Rules attribute is a string reference. Converting to JSON content.")
         rules = clean_and_parse_json(rules).get("rules", {})
     
     if isinstance(rules, dict):

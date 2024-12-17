@@ -3,7 +3,7 @@ from typing import Dict, Any, Optional
 from azion_resources import AzionResource
 from utils import parse_ttl
 
-def create_cache_setting(azion_resources: AzionResource, rule: Dict[str, Any], main_setting_name: str) -> Dict[str, Any]:
+def create_cache_setting(azion_resources: AzionResource, rule: Dict[str, Any], main_setting_name: str) -> Optional[Dict[str, Any]]:
     """
     Creates a single Azion cache setting resource.
     """

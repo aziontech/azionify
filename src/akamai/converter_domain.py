@@ -1,9 +1,9 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import logging
 
 from azion_resources import AzionResource
 
-def create_domain(azion_resources: AzionResource, attributes: Dict[str, Any], main_setting_name: str) -> Dict[str, Any]:
+def create_domain(azion_resources: AzionResource, attributes: Dict[str, Any], main_setting_name: str) -> Optional[Dict[str, Any]]:
     """
     Creates the Azion domain resource from Akamai attributes.
 

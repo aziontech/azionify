@@ -4,7 +4,7 @@ from azion_resources import AzionResource
 from utils import clean_and_parse_json
 from akamai.utils import map_origin_type, map_forward_host_header
 
-def create_origin(azion_resources: AzionResource, attributes: Dict[str, Any], main_setting_name: str, edge_hostname: Optional[str]) -> Dict[str, Any]:
+def create_origin(azion_resources: AzionResource, attributes: Dict[str, Any], main_setting_name: str, edge_hostname: Optional[str]) -> Optional[Dict[str, Any]]:
     """
     Creates the origin resource for Azion, dynamically mapping Akamai addresses.
 

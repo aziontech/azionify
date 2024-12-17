@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, Optional
 from azion_resources import AzionResource
 from utils import clean_and_parse_json
 
@@ -48,7 +48,7 @@ def validate_and_apply_defaults(attributes: Dict[str, Any], defaults: Dict[str, 
 
     return validated
 
-def create_main_setting(azion_resources: AzionResource, attributes: Dict[str, Any], main_setting_name: str) -> Dict[str, Any]:
+def create_main_setting(azion_resources: AzionResource, attributes: Dict[str, Any], main_setting_name: str) -> Optional[Dict[str, Any]]:
     """
     Creates the main application setting resource for Azion.
 

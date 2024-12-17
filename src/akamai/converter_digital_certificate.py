@@ -38,6 +38,6 @@ def create_digital_certificate(azion_resources: AzionResource, custom_certificat
                 }
             }
 
-    except Exception as e:
+    except ValueError as e:
         logging.error(f"Error creating digital certificate: {str(e)}")
         return None

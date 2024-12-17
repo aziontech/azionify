@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Any, Optional, Tuple, Set
+from typing import Dict, Any, Optional
 from utils import clean_and_parse_json, sanitize_name
 
 
@@ -63,7 +63,7 @@ def extract_edge_hostname(akamai_config: dict) -> Optional[str]:
                             logging.info(f"Extracted edge_hostname: {edge_hostname} from akamai_edge_hostname")
                             return edge_hostname
 
-    except Exception as e:
+    except ValueError as e:
         print(f"Error in extract_edge_hostname: {e}")
 
     logging.warning("Edge hostname not found in Akamai configuration.")
@@ -116,10 +116,10 @@ def find_origin_hostname(akamai_config):
                                 logging.info(f"Found origin hostname in child: {hostname}")
                                 return hostname
 
-    except Exception as e:
+    except ValueError as e:
         logging.error(f"Error in find_origin_hostname: {e}")
     
-    logging.warn("WARNING: Origin hostname not found. Returning None.")
+    logging.warning("WARNING: Origin hostname not found. Returning None.")
     return None
 
 def map_variable(value: str, context: str = "subject") -> str:

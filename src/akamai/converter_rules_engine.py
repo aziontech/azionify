@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Any, Optional, Set, Tuple
+from typing import Dict, List, Any, Set, Tuple
 from azion_resources import AzionResource
 from akamai.mapping import MAPPING
 from akamai.utils import map_forward_host_header, map_origin_type, map_variable
@@ -81,7 +81,7 @@ def create_rule_engine(azion_resources: AzionResource, rule: Dict[str, Any], mai
                 logging.info(f"Rule engine resource created for rule: {rule_name}")
         else:
             logging.warning(f"No behaviors or criteria found for rule: {rule_name}. Skipping.")
-    except Exception as e:
+    except ValueError as e:
         logging.error(f"Error processing rule {rule_name}: {str(e)}")
 
     return resources
@@ -107,7 +107,7 @@ def process_children(azion_resources: AzionResource,children: List[Dict[str, Any
             # Calculate child priority based on parent index and child position
             child_index = (parent_index * child_priority_multiplier) + index
             resources.extend(create_rule_engine(azion_resources, child, main_setting_name, child_index))
-        except Exception as e:
+        except ValueError as e:
             logging.error(f"Error processing child rule {child.get('name', 'unnamed')}: {str(e)}")
     return resources
 
@@ -312,7 +312,7 @@ def process_criteria(criteria: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             else:
                 request_entries.append(entry)
 
-        except Exception as e:
+        except ValueError as e:
             logging.error(f"Error processing criterion {name}: {str(e)}")
 
     # Assemble criteria groups
@@ -390,9 +390,8 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
             azion_behavior = {
                 "name": "set_host_header",
                 "enabled": True,
-                "description": behavior.get("description", f"Behavior for {behavior_name}"),
+                "description": behavior.get("description", f"Set host header to {host_header}"),
                 "target": { "host_header": host_header },
-                "description": f"Set host header to {host_header}"
             }
             azion_behaviors.append(azion_behavior)
             seen_behaviors.add("set_host_header")
@@ -451,14 +450,14 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
                         value = option_key(options) if callable(option_key) else options.get(option_key)
                         if value is not None:
                             target[target_key] = value
-                    except Exception as e:
+                    except ValueError as e:
                         logging.error(f"Error processing target for key '{target_key}' in behavior '{behavior_name}': {e}")
             elif isinstance(mapping["target"], str):
                 try:
                     value = options.get(mapping["target"])
                     if value is not None:
                         target = value
-                except Exception as e:
+                except ValueError as e:
                     logging.error(f"Error accessing target for behavior '{behavior_name}': {e}")
 
             # Special handling for origin

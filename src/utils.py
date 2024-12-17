@@ -195,7 +195,7 @@ def clean_and_parse_json(json_string: str) -> Optional[Any]:
     except json.JSONDecodeError as e:
         logging.error(f"JSON decode error: {str(e)}")
         return None
-    except Exception as e:
+    except ValueError as e:
         logging.error(f"Unexpected error while parsing JSON: {str(e)}")
         return None
 

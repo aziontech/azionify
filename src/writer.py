@@ -303,7 +303,7 @@ def write_rule_engine_block(f, resource):
         write_indented(f, "", 0)
 
         logging.info(f"Rule engine block written for {normalized_name}")
-    except Exception as e:
+    except ValueError as e:
         logging.error(f"Error writing rule engine block: {str(e)}")
 
 
@@ -375,7 +375,7 @@ def validate_cache_settings(cache_settings: dict) -> dict:
         try:
             cdn_cache_ttl = int(cache_settings.get("cdn_cache_settings_maximum_ttl", 60))
         except (ValueError, TypeError):
-            logging.warning(f"Invalid cdn_cache_settings_maximum_ttl format, defaulting to 60")
+            logging.warning("Invalid cdn_cache_settings_maximum_ttl format, defaulting to 60")
             cdn_cache_ttl = 60
 
         if not (0 <= cdn_cache_ttl <= 31536000):
@@ -408,14 +408,9 @@ def write_azion_edge_function_block(function_data: dict, resource_name: str) -> 
     Returns:
         str: Terraform block as a string.
     """
-    from io import StringIO
 
     # Prepare an output buffer
     output = StringIO()
-
-    def write_indented(line: str, level: int = 0):
-        """Writes a line with the specified indentation level."""
-        output.write("    " * level + line + "\n")
 
     # Extract data from the function_data dictionary
     name = function_data.get("name", "Unnamed Function")

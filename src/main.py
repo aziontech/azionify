@@ -98,8 +98,6 @@ def main():
         logging.error(f"Invalid configuration format: {e}")
     except KeyError as e:
         logging.error(f"Missing expected configuration key: {e}")
-    except Exception as e:
-        logging.error(f"An unexpected error occurred: {e}")
 
 
 if __name__ == "__main__":

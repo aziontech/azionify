@@ -2,7 +2,7 @@ from typing import Dict, Any, Optional
 
 from azion_resources import AzionResource
 
-def create_edge_function(azion_resources: AzionResource, rule_name: str, logic: str) -> Dict[str, Any]:
+def create_edge_function(azion_resources: AzionResource, rule_name: str, logic: str) -> Optional[Dict[str, Any]]:
     """
     Creates an Azion Edge Function resource for complex logic.
 
@@ -13,7 +13,7 @@ def create_edge_function(azion_resources: AzionResource, rule_name: str, logic: 
     Returns:
         dict: Azion-compatible Edge Function resource.
     """
-    function_code = f"""
+    function_code = """
     TBD
     """
     return {
