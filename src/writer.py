@@ -1,6 +1,7 @@
 from typing import Dict, Any
 import logging
-from utils import normalize_name, write_indented
+from utils import sanitize_name, write_indented
+from io import StringIO
 
 logging.basicConfig(level=logging.INFO)
 
@@ -32,7 +33,7 @@ def write_depends_on(f, attributes):
     """
     depends_on = attributes.get("depends_on", [])
     if depends_on:
-        depends_on_list = ", ".join([f"azion_edge_application_main_setting.{item}" for item in depends_on])
+        depends_on_list = ", ".join([f"{item}" for item in depends_on])
         write_indented(f, f"depends_on = [{depends_on_list}]", 1)
 
 
@@ -44,13 +45,16 @@ def write_main_setting_block(f, attributes):
         f (file object): File object to write to.
         attributes (dict): Attributes for the main setting.
     """
-    try:
+    try: 
         edge_application = attributes["edge_application"]
-        normalized_name = normalize_name(edge_application["name"])
+        name = edge_application.get("name")
+        if not name:
+            name = "Unnamed Edge Application"
+        normalized_name = sanitize_name(name)
 
         # Apply defaults and validate values
         delivery_protocol = edge_application.get("delivery_protocol", "http,https")
-        http_port = edge_application.get("http_port", [80])
+        http_port = edge_application.get("http_port", [80,8080])
         https_port = edge_application.get("https_port", [443])
         minimum_tls_version = edge_application.get("minimum_tls_version", "")
         supported_ciphers = edge_application.get("supported_ciphers", "all")
@@ -100,7 +104,6 @@ def write_main_setting_block(f, attributes):
         logging.error(f"Unexpected error in write_main_setting_block: {e}")
 
 
-
 def write_origin_block(f, attributes):
     """
     Writes the origin resource block for Azion based on its business rules.
@@ -113,17 +116,20 @@ def write_origin_block(f, attributes):
         origin = attributes["origin"]
 
         # Extract required values and apply defaults
-        normalized_name = normalize_name(origin["name"])
+        normalized_name = sanitize_name(origin["name"])
         edge_application_id = attributes["edge_application_id"]
         origin_type = origin.get("origin_type", "single_origin")
         addresses = origin.get("addresses", [{"address": "placeholder.example.com"}])
-        origin_protocol_policy = origin.get("origin_protocol_policy", "http")
+        origin_protocol_policy = origin.get("origin_protocol_policy", "preserve")
         host_header = origin.get("host_header", "$${host}")
         origin_path = origin.get("origin_path", "/")
         hmac_authentication = origin.get("hmac_authentication", False)
         hmac_region_name = origin.get("hmac_region_name", "")
         hmac_access_key = origin.get("hmac_access_key", "")
         hmac_secret_key = origin.get("hmac_secret_key", "")
+        connection_timeout = origin.get("connection_timeout", 60)
+        timeout_between_bytes = origin.get("timeout_between_bytes", 5)
+        is_origin_redirection_enabled = origin.get("is_origin_redirection_enabled", False)
 
         # Write block
         write_indented(f, f'resource "azion_edge_application_origin" "{normalized_name}" {{', 0)
@@ -133,19 +139,28 @@ def write_origin_block(f, attributes):
         write_indented(f, f'origin_type = "{origin_type}"', 2)
 
         # Write addresses block
-        write_indented(f, "addresses : [", 2)
+        write_indented(f, "addresses = [", 2)
         for address in addresses:
-            write_indented(f, f'{{ "address" : "{address["address"]}" }},', 3)
+            address_block = [
+                f'"address" : "{address["address"]}"',
+                f'"is_active" : {str(address.get("is_active", True)).lower()}',
+                f'"server_role" : "{address.get("server_role", "primary")}"',
+                f'"weight" : {address.get("weight", 0)}',
+            ]
+            write_indented(f, f'{{ {", ".join(address_block)} }},', 3)
         write_indented(f, "],", 2)
 
         # Write remaining fields
-        write_indented(f, f'origin_protocol_policy : "{origin_protocol_policy}"', 2)
-        write_indented(f, f'host_header : "{host_header}"', 2)
-        write_indented(f, f'origin_path : "{origin_path}"', 2)
-        write_indented(f, f'hmac_authentication : {str(hmac_authentication).lower()}', 2)
-        write_indented(f, f'hmac_region_name : "{hmac_region_name}"', 2)
-        write_indented(f, f'hmac_access_key : "{hmac_access_key}"', 2)
-        write_indented(f, f'hmac_secret_key : "{hmac_secret_key}"', 2)
+        write_indented(f, f'origin_protocol_policy = "{origin_protocol_policy}"', 2)
+        write_indented(f, f'host_header = "{host_header}"', 2)
+        write_indented(f, f'origin_path = "{origin_path}"', 2)
+        write_indented(f, f'connection_timeout = {connection_timeout}', 2)
+        write_indented(f, f'timeout_between_bytes = {timeout_between_bytes}', 2)
+        write_indented(f, f'is_origin_redirection_enabled = {str(is_origin_redirection_enabled).lower()}', 2)
+        write_indented(f, f'hmac_authentication = {str(hmac_authentication).lower()}', 2)
+        write_indented(f, f'hmac_region_name = "{hmac_region_name}"', 2)
+        write_indented(f, f'hmac_access_key = "{hmac_access_key}"', 2)
+        write_indented(f, f'hmac_secret_key = "{hmac_secret_key}"', 2)
         write_indented(f, "}", 1)
         write_depends_on(f, attributes)
         write_indented(f, "}", 0)
@@ -154,8 +169,10 @@ def write_origin_block(f, attributes):
         logging.info(f"Origin block written for {origin['name']}")
     except KeyError as e:
         logging.error(f"Missing key {e} in origin attributes")
-    except ValueError as e:
+        raise
+    except Exception as e:
         logging.error(f"Unexpected error in write_origin_block: {e}")
+        raise
 
 
 def write_domain_block(f, attributes):
@@ -168,7 +185,7 @@ def write_domain_block(f, attributes):
     """
     try:
         domain = attributes["domain"]
-        normalized_name = normalize_name(domain["name"])
+        normalized_name = sanitize_name(domain["name"])
         write_indented(f, f'resource "azion_domain" "{normalized_name}" {{', 0)
         write_indented(f, "domain = {", 1)
         write_indented(f, f'cnames                    = {domain["cnames"]}', 2)
@@ -186,60 +203,108 @@ def write_domain_block(f, attributes):
         logging.error(f"Missing key {e} in domain attributes")
     except ValueError as e:
         logging.error(f"Unexpected error in write_domain_block: {e}")
-        
 
-def write_rule_engine_block(f, attributes):
+
+def write_rule_engine_block(f, resource):
     """
-    Writes the rule engine resource block for Azion.
+    Write a rule engine block to the Terraform file.
 
     Parameters:
-        f (file object): File to write the Terraform block.
-        attributes (dict): Attributes of the rule engine resource.
+        f (file object): File object to write to.
+        resource (dict): Resource data to write.
     """
     try:
-        results = attributes["results"]
-        write_indented(f, f'resource "azion_edge_application_rule_engine" "{normalize_name(results["name"])}" {{', 0)
-        write_indented(f, f'edge_application_id = {attributes["edge_application_id"]}', 1)
+        attributes = resource.get("attributes", {})
+        results = attributes.get("results", {})
+
+        # Get resource name from results
+        name = results.get("name", "unnamed_rule")
+        normalized_name = sanitize_name(name)
+
+        # Write resource block header
+        write_indented(f, f'resource "azion_edge_application_rule_engine" "{normalized_name}" {{', 0)
+        write_indented(f, f'edge_application_id = {attributes.get("edge_application_id")}', 1)
+        write_indented(f, "", 0)
+
+        # Write results block
         write_indented(f, "results = {", 1)
-        write_indented(f, f'name  = "{results["name"]}"', 2)
-        write_indented(f, f'phase = "{results["phase"]}"', 2)
 
-        # Behaviors
-        write_indented(f, "behaviors = [", 2)
-        for behavior in results.get("behaviors", []):
-            write_indented(f, "{", 3)
-            write_indented(f, f'name = "{behavior["name"]}"', 4)
-            if "target_object" in behavior:
-                write_indented(f, "target_object = {", 4)
-                for key, value in behavior["target_object"].items():
-                    write_indented(f, f'{key} = "{value}"', 5)
-                write_indented(f, "}", 4)
-            write_indented(f, "},", 3)
-        write_indented(f, "],", 2)
+        # Write basic attributes
+        write_indented(f, f'name        = "{name}"', 2)
+        write_indented(f, f'phase       = "{results.get("phase", "request")}"', 2)
+        write_indented(f, f'description = "{results.get("description", "")}"', 2)
 
-        # Criteria
-        write_indented(f, "criteria = [", 2)
-        for criterion in results.get("criteria", []):
-            write_indented(f, "{", 3)
-            write_indented(f, "entries = [", 4)
-            for entry in criterion.get("entries", []):
-                write_indented(
-                    f,
-                    f'{{ variable = "{entry["variable"]}", operator = "{entry["operator"]}", input_value = "{entry["input_value"]}" }},',
-                    5,
-                )
-            write_indented(f, "],", 4)
-            write_indented(f, "},", 3)
-        write_indented(f, "],", 2)
+        # Write behaviors if present
+        behaviors = results.get("behaviors", [])
+        if behaviors:
+            write_indented(f, "behaviors = [", 2)
+            for behavior in behaviors:
+                write_indented(f, "{", 3)
+                write_indented(f, f'name = "{behavior.get("name")}"', 4)
 
+                # Write target_object if present
+                target = behavior.get("target", {})
+                if target:
+                    write_indented(f, "target_object = {", 4)
+                    if isinstance(target, dict):
+                        for key, value in target.items():
+                            # Convert value based on its type
+                            if key == "addresses" and isinstance(value, list):
+                                # Convert list to HCL format
+                                addresses_str = ", ".join([str(addr).replace("'", '"') for addr in value])
+                                write_indented(f, f'{key} = [{addresses_str}]', 5)
+                            elif isinstance(value, bool):
+                                write_indented(f, f'{key} = {str(value).lower()}', 5)
+                            elif isinstance(value, (int, float)):
+                                write_indented(f, f'{key} = {value}', 5)
+                            else:
+                                write_indented(f, f'{key} = "{value}"', 5)
+                    else:
+                        write_indented(f, f'target = "{target}"', 5)
+                    write_indented(f, "}", 4)
+                else:
+                    write_indented(f, "target_object = {}", 4)
+
+                write_indented(f, "},", 3)
+            write_indented(f, "]", 2)
+
+        # Write criteria if present
+        criteria = results.get("criteria", [])
+        if criteria:
+            write_indented(f, "criteria = [", 2)
+            for criterion in criteria:
+                write_indented(f, "{", 3)
+                write_indented(f, "entries = [", 4)
+                for entry in criterion.get("entries", []):
+                    write_indented(f, "{", 5)
+                    write_indented(f, f'variable    = "{entry.get("variable", "")}"', 6)
+                    write_indented(f, f'operator    = "{entry.get("operator", "matches")}"', 6)
+                    write_indented(f, f'conditional = "{entry.get("conditional", "and")}"', 6)
+
+                    # Handle input_value safely
+                    input_value = entry.get("input_value", "*")
+                    if input_value:
+                        write_indented(f, f'input_value = "{input_value}"', 6)
+
+                    write_indented(f, "},", 5)
+                write_indented(f, "]", 4)
+                write_indented(f, "},", 3)
+            write_indented(f, "]", 2)
+
+        # Write order if present
+        order = results.get("order")
+        if order is not None:
+            write_indented(f, f"order = {int(order)}", 2)
+
+        # Close blocks
         write_indented(f, "}", 1)
+        write_depends_on(f, attributes)
         write_indented(f, "}", 0)
         write_indented(f, "", 0)
-        logging.info(f"Rule engine block written for {results['name']}")
-    except KeyError as e:
-        logging.error(f"Missing key {e} in rule engine attributes")
-    except ValueError as e:
-        logging.error(f"Unexpected error in write_rule_engine_block: {e}")
+
+        logging.info(f"Rule engine block written for {normalized_name}")
+    except Exception as e:
+        logging.error(f"Error writing rule engine block: {str(e)}")
 
 
 def write_cache_setting_block(f, cache_settings: dict, main_setting_name: str):
@@ -253,7 +318,7 @@ def write_cache_setting_block(f, cache_settings: dict, main_setting_name: str):
     """
     try:
         # Validate and normalize cache settings
-        validated_settings = validate_cache_settings(cache_settings)
+        validated_settings = validate_cache_settings(cache_settings.get("cache_settings", {}))
 
         # Write cache setting resource block
         write_indented(f, f'resource "azion_edge_application_cache_setting" "{main_setting_name}" {{', 0)
@@ -276,6 +341,7 @@ def write_cache_setting_block(f, cache_settings: dict, main_setting_name: str):
     except Exception as e:
         logging.error(f"Error writing cache settings block for {main_setting_name}: {e}")
         raise
+
 
 def validate_cache_settings(cache_settings: dict) -> dict:
     """
@@ -306,7 +372,12 @@ def validate_cache_settings(cache_settings: dict) -> dict:
             logging.warning(f"Invalid cdn_cache_settings '{cdn_cache_settings}', defaulting to 'honor'")
             cdn_cache_settings = "honor"
 
-        cdn_cache_ttl = cache_settings.get("cdn_cache_settings_maximum_ttl", 60)
+        try:
+            cdn_cache_ttl = int(cache_settings.get("cdn_cache_settings_maximum_ttl", 60))
+        except (ValueError, TypeError):
+            logging.warning(f"Invalid cdn_cache_settings_maximum_ttl format, defaulting to 60")
+            cdn_cache_ttl = 60
+
         if not (0 <= cdn_cache_ttl <= 31536000):
             logging.warning(
                 f"Invalid cdn_cache_settings_maximum_ttl '{cdn_cache_ttl}', defaulting to 60"
@@ -326,8 +397,91 @@ def validate_cache_settings(cache_settings: dict) -> dict:
         raise
 
 
+def write_azion_edge_function_block(function_data: dict, resource_name: str) -> str:
+    """
+    Generates a Terraform block for azion_edge_function resource with proper indentation.
 
-def write_terraform_file(filepath: str, config: Dict[str, Any], main_setting_name: str):
+    Parameters:
+        function_data (dict): Data for the edge function configuration.
+        resource_name (str): Name of the Terraform resource.
+
+    Returns:
+        str: Terraform block as a string.
+    """
+    from io import StringIO
+
+    # Prepare an output buffer
+    output = StringIO()
+
+    def write_indented(line: str, level: int = 0):
+        """Writes a line with the specified indentation level."""
+        output.write("    " * level + line + "\n")
+
+    # Extract data from the function_data dictionary
+    name = function_data.get("name", "Unnamed Function")
+    code = function_data.get("code", "placeholder_code")
+    language = function_data.get("language", "javascript")
+    initiator_type = function_data.get("initiator_type", "edge_application")
+    json_args = function_data.get("json_args", "{}")
+    active = function_data.get("active", True)
+
+    # Write the Terraform block
+    write_indented(f'resource "azion_edge_function" "{resource_name}" {{', 0)
+    write_indented("edge_function = {", 1)
+    write_indented(f'name           = "{name}"', 2)
+    write_indented(f'code           = trimspace(file("{code}"))', 2)
+    write_indented(f'language       = "{language}"', 2)
+    write_indented(f'initiator_type = "{initiator_type}"', 2)
+    write_indented(f'json_args      = jsonencode({json_args})', 2)
+    write_indented(f'active         = {str(active).lower()}', 2)
+    write_indented("}", 1)
+    write_indented("}", 0)
+
+    return output.getvalue()
+
+
+def write_azion_edge_application_edge_functions_instance_block(f, attributes: dict, main_setting_name: str):
+    """
+    Writes the azion_edge_application_edge_functions_instance block.
+
+    Parameters:
+        f (file object): The file to write to.
+        attributes (dict): Attributes for the azion_edge_application_edge_functions_instance resource.
+    """
+    results = attributes.get("results", {})
+    name = results.get("name")
+    edge_function_id = results.get("edge_function_id")
+    args = results.get("args", None)
+
+    # Validate edge_functions in main_setting
+    if not attributes.get("edge_functions", False):
+        raise ValueError(
+            f"Cannot create azion_edge_application_edge_functions_instance '{name}' because 'edge_functions' "
+            f"is not enabled in azion_edge_application_main_setting."
+        )
+
+    # Begin resource block
+    write_indented(f, f'resource "azion_edge_application_edge_functions_instance" "{name}" {{', 0)
+
+    # Write edge_application_id
+    write_indented(f, f'edge_application_id = azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id', 1)
+
+    # Write results block
+    write_indented(f, "results = {", 1)
+    write_indented(f, f'name = "{name}"', 2)
+    write_indented(f, f'edge_function_id = {edge_function_id}', 2)
+    if args:
+        write_indented(f, f'args = jsonencode({args})', 2)
+    write_indented(f, "}", 1)
+
+    # Write depends_on using the helper function
+    write_depends_on(f, attributes)
+
+    # End resource block
+    write_indented(f, "}", 0)
+
+
+def write_terraform_file(filepath: str, config: Dict[str, Any]):
     """
     Writes the entire Terraform file based on the Azion configuration.
 
@@ -337,6 +491,8 @@ def write_terraform_file(filepath: str, config: Dict[str, Any], main_setting_nam
         main_setting_name (str): Main setting name to use as a reference in dependencies.
     """
     try:
+        main_setting_name = config.get("global_settings", {}).get("main_setting_name")
+
         with open(filepath, "w", encoding="utf-8") as f:
             # Write variable and provider blocks
             write_variable_block(f)
@@ -344,17 +500,21 @@ def write_terraform_file(filepath: str, config: Dict[str, Any], main_setting_nam
 
             # Iterate over resources and write their corresponding blocks
             for resource in config["resources"]:
-                resource_type = resource["type"]
-                attributes = resource["attributes"]
+                resource_type = resource.get("type", None)
+                attributes = resource.get("attributes", None)
+                if not resource_type or not attributes or resource_type == "global_settings":
+                    continue
 
                 if resource_type == "azion_edge_application_main_setting":
                     write_main_setting_block(f, attributes)
                 elif resource_type == "azion_edge_application_origin":
                     write_origin_block(f, attributes)
                 elif resource_type == "azion_edge_application_rule_engine":
-                    write_rule_engine_block(f, attributes)
+                    write_rule_engine_block(f, resource)
                 elif resource_type == "azion_domain":
                     write_domain_block(f, attributes)
+                elif resource_type == "azion_edge_function":
+                    write_azion_edge_function_block(f, attributes)
                 elif resource_type == "azion_edge_application_cache_setting":
                     validated_cache_settings = validate_cache_settings(attributes["cache_settings"])
                     attributes["cache_settings"] = validated_cache_settings
