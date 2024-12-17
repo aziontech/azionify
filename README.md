@@ -1,14 +1,15 @@
 # Azionify
 
-Azionify is a CLI tool that converts Akamai Terraform configurations into Azion-compatible Terraform configurations. This tool helps streamline the migration process by automating the translation of Akamai's resources to Azion's resources in Terraform.
+Azionify is a flexible CLI tool designed to convert Terraform configurations from various CDNs into Azion-compatible Terraform configurations. This tool helps streamline migration processes by automating the translation of CDN-specific resources into Azion's Terraform resources.
 
 ---
 
 ## Features
 
-- Converts Akamai `akamai_property` resources to Azion `azion_edge_application_*` resources.
-- Automatically detects the main setting name from the Akamai configuration.
-- Outputs Azion-compatible Terraform files with proper dependencies and structure.
+- Multi-CDN Support: Currently supports Akamai and allows easy extension for other CDNs in the future.
+- Resource Conversion: Converts CDN-specific Terraform resources (e.g., akamai_property) into Azion-compatible resources (azion_edge_application_*).
+- Dependency Management: Automatically detects and generates proper dependencies in Terraform files.
+- Customizable Input: Specify input CDN type for flexibility in migrations.
 
 ---
 
@@ -41,6 +42,7 @@ Azionify is a CLI tool that converts Akamai Terraform configurations into Azion-
 |-------------|---------------------------------------------------------------|---------------|
 | `--input`   | Path to the Akamai Terraform configuration file.              | `akamai.tf`   |
 | `--output`  | Path to the output Azion Terraform configuration file.        | `azion.tf`    |
+| `--in-type` | Specifies the CDN type of the input file (e.g., akamai).      | `akamai`      |
 
 ### Examples
 
@@ -58,6 +60,23 @@ python src/main.py --input custom_akamai.tf --output custom_azion.tf
 
 #### Output
 The tool will generate an Azion-compatible Terraform configuration file at the specified output path.
+
+---
+
+### Extending for Additional CDNs
+Azionify is modular by design. You can add new CDN-specific conversion logic by following these steps:
+
+Create a New Converter: Add a new converter module under src/<cdn>/converter.py.
+Example:
+```bash
+src/cloudflare/converter.py
+```
+
+Implement Resource Mapping: Define the resource mappings and conversion logic similar to the existing Akamai converter.
+
+Register the New Converter: Update main.py to include the new CDN under the `--in-type` argument.
+
+Run the Tool: Use the `--in-type` parameter to select the new CDN.
 
 ---
 
