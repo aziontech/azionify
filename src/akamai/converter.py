@@ -140,7 +140,7 @@ def process_children(azion_resources: AzionResource, children: List[Dict[str, An
                 if cache_setting:
                     logging.info(f"Cache setting created for rule: {rule.get('name', 'Unnamed Rule')}")
                     azion_resources.append(cache_setting)
-        except Exception as e:
+        except ValueError as e:
             logging.error(f"Error processing cache setting for rule {rule.get('name', 'Unnamed Rule')}: {e}")
 
         # Post Behaviors
@@ -153,7 +153,7 @@ def process_children(azion_resources: AzionResource, children: List[Dict[str, An
         try:
             logging.info(f"Processing rule: {rule.get('name', 'Unnamed Rule')}")
             azion_resources.extend(create_rule_engine(azion_resources, rule, main_setting_name, index))
-        except Exception as e:
+        except ValueError as e:
             logging.error(f"Error processing rule engine for rule {rule.get('name', 'Unnamed Rule')}: {e}")
 
     
