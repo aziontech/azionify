@@ -2,7 +2,7 @@ import logging
 from typing import Dict, Any, Optional
 from azion_resources import AzionResource
 from utils import clean_and_parse_json
-from akamai.utils import map_origin_type, map_forward_host_header
+from akamai.utils import map_origin_protocol_policy, map_origin_type, map_forward_host_header
 
 def create_origin(azion_resources: AzionResource, attributes: Dict[str, Any], main_setting_name: str, edge_hostname: Optional[str]) -> Optional[Dict[str, Any]]:
     """
@@ -23,7 +23,7 @@ def create_origin(azion_resources: AzionResource, attributes: Dict[str, Any], ma
         rules = attributes.get("rules", {})
         behaviors = []
         if isinstance(rules, str):
-            logging.warning("Rules attribute is a string reference. Converting to JSON content.")
+            logging.debug("Rules attribute is a string reference. Converting to JSON content.")
             rules = clean_and_parse_json(rules).get("rules", {})
 
         if isinstance(rules, dict):
@@ -41,10 +41,10 @@ def create_origin(azion_resources: AzionResource, attributes: Dict[str, Any], ma
         # Extract origin-specific details
         hostname = options.get("hostname") or edge_hostname or "placeholder.example.com"
         origin_type = map_origin_type(options.get("originType", "CUSTOMER"))
-        origin_protocol_policy = options.get("origin_protocol_policy", "preserve")
-        origin_path = options.get("originPath", "/")
-        connection_timeout = options.get("connection_timeout", 10)
-        timeout_between_bytes = options.get("timeout_between_bytes", 5)
+        origin_protocol_policy = map_origin_protocol_policy(options)
+        origin_path = options.get("baseDirectory", "")
+        connection_timeout = options.get("connection_timeout", 60)
+        timeout_between_bytes = options.get("timeout_between_bytes", 120)
         is_origin_redirection_enabled = options.get("is_origin_redirection_enabled", False)
         host_header = map_forward_host_header(options)
 
@@ -57,7 +57,7 @@ def create_origin(azion_resources: AzionResource, attributes: Dict[str, Any], ma
                 "address": hostname,
                 "is_active": options.get("is_active", True),
                 "server_role": options.get("server_role", "primary"),
-                "weight": options.get("weight", 1),
+                "weight": options.get("weight", None),
             }
         ]
 

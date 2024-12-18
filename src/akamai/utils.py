@@ -119,7 +119,7 @@ def find_origin_hostname(akamai_config):
     except ValueError as e:
         logging.error(f"Error in find_origin_hostname: {e}")
     
-    logging.warning("WARNING: Origin hostname not found. Returning None.")
+    logging.debug("WARNING: Origin hostname not found. Returning None.")
     return None
 
 def map_variable(value: str, context: str = "subject") -> str:
@@ -201,3 +201,27 @@ def map_forward_host_header(options: Dict[str, Any], default_host: str = "$${hos
         return custom_host_header
     else:
         return options.get("hostname", default_host)
+
+def map_origin_protocol_policy(options: Dict[str, Any]) -> str:
+    """
+    Maps Akamai's HTTP/HTTPS origin port settings to Azion's origin_protocol_policy.
+
+    Parameters:
+        options (Dict[str, Any]): Akamai origin options.
+
+    Returns:
+        str: Mapped value for Azion's origin_protocol_policy.
+    """
+    # Check for httpsPort and httpPort
+    https_port = options.get("httpsPort")
+    http_port = options.get("httpPort")
+
+    # If both ports are explicitly set, return 'preserve'
+    if https_port and http_port:
+        return "preserve"
+    elif https_port:  # If only httpsPort is set
+        return "https"
+    elif http_port:  # If only httpPort is set
+        return "http"
+    else:  # Default to 'preserve' if neither is explicitly set
+        return "preserve"

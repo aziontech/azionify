@@ -87,8 +87,13 @@ def create_main_setting(azion_resources: AzionResource, attributes: Dict[str, An
         rules = attributes.get("rules", {})
         behaviors = []
         if isinstance(rules, str):
-            logging.warning("Rules attribute is a string reference. Converting to JSON content.")
-            rules = clean_and_parse_json(rules).get("rules", {})
+            logging.debug("Rules attribute is a string reference. Converting to JSON content.")
+            rules = clean_and_parse_json(rules)
+            if rules:
+                rules = rules.get("rules", {})
+            else:
+                logging.error("Failed to parse rules or empty rules content.")
+                rules = {}
         if isinstance(rules, dict):
             behaviors = rules.get("behaviors", [])
         else:

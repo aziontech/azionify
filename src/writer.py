@@ -307,21 +307,21 @@ def write_rule_engine_block(f, resource):
         logging.error(f"Error writing rule engine block: {str(e)}")
 
 
-def write_cache_setting_block(f, cache_settings: dict, main_setting_name: str):
+def write_cache_setting_block(f, resource: dict):
     """
     Writes the cache settings block for Azion based on validated settings.
 
     Parameters:
         f (file object): The file to write the Terraform block.
-        cache_settings (dict): Cache settings to be written.
-        main_setting_name (str): Name of the main Azion edge application resource.
+        resource (dict): Resource to be written.
     """
+    name = resource.get("name", "unnamed_cache_settings")
     try:
         # Validate and normalize cache settings
-        validated_settings = validate_cache_settings(cache_settings.get("cache_settings", {}))
+        validated_settings = validate_cache_settings(resource.get("attributes", {}).get("cache_settings", {}))
 
         # Write cache setting resource block
-        write_indented(f, f'resource "azion_edge_application_cache_setting" "{main_setting_name}" {{', 0)
+        write_indented(f, f'resource "azion_edge_application_cache_setting" "{name}" {{', 0)
         write_indented(f, "cache_settings = {", 1)
         write_indented(f, f'browser_cache_settings = "{validated_settings["browser_cache_settings"]}"', 2)
         write_indented(
@@ -332,14 +332,14 @@ def write_cache_setting_block(f, cache_settings: dict, main_setting_name: str):
             f, f'cdn_cache_settings_maximum_ttl = {validated_settings["cdn_cache_settings_maximum_ttl"]}', 2
         )
         write_indented(f, "}", 1)
-        write_indented(f, f'edge_application_id = azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id', 1)
+        write_indented(f, f'edge_application_id = azion_edge_application_main_setting.{name}.edge_application.application_id', 1)
         write_indented(f, "}", 0)
         write_indented(f, "", 0)
 
-        logging.info(f"Cache settings block written for {main_setting_name}")
+        logging.info(f"Cache settings block written for {name}")
 
     except Exception as e:
-        logging.error(f"Error writing cache settings block for {main_setting_name}: {e}")
+        logging.error(f"Error writing cache settings block for {name}: {e}")
         raise
 
 
@@ -511,9 +511,7 @@ def write_terraform_file(filepath: str, config: Dict[str, Any]):
                 elif resource_type == "azion_edge_function":
                     write_azion_edge_function_block(f, attributes)
                 elif resource_type == "azion_edge_application_cache_setting":
-                    validated_cache_settings = validate_cache_settings(attributes["cache_settings"])
-                    attributes["cache_settings"] = validated_cache_settings
-                    write_cache_setting_block(f, attributes, main_setting_name)
+                    write_cache_setting_block(f, resource)
                 else:
                     logging.warning(f"Unknown resource type '{resource_type}' encountered. Skipping.")
 

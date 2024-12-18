@@ -8,6 +8,8 @@ def create_cache_setting(azion_resources: AzionResource, rule: Dict[str, Any], m
     Creates a single Azion cache setting resource.
     """
     logging.info(f"Creating cache setting for rule: {rule.get('name', 'Unnamed Rule')}")
+    
+    # Extract caching behavior
     caching_behavior = next((b for b in rule.get("behaviors", []) if b.get("name") == "caching"), None)
     if caching_behavior:
         logging.info("Cache behavior found. Generating resource.")
@@ -16,20 +18,23 @@ def create_cache_setting(azion_resources: AzionResource, rule: Dict[str, Any], m
         ttl = 0
         try:
             ttl = caching_behavior.get("options", {}).get("ttl", 3600)
-            ttl = parse_ttl(ttl)
+            ttl = parse_ttl(ttl)  # Assumes parse_ttl is designed to handle different formats like string, int, etc.
         except (ValueError, TypeError):
             logging.warning(f"Invalid TTL value: {ttl}, defaulting to 3600")
             ttl = 3600
 
+        # Enforcing max TTL of 1 year (31536000 seconds)
         if ttl > 31536000:
-            logging.warning(f"Invalid TTL value: {ttl}, defaulting to 31536000 (1 year)")
+            logging.warning(f"TTL value {ttl} exceeds 1 year, defaulting to 31536000 (1 year)")
             ttl = 31536000
 
+        # Enforcing min TTL to 0 if less than 0
         if ttl < 0:
-            logging.warning(f"Invalid TTL value: {ttl}, defaulting to 0")
+            logging.warning(f"TTL value {ttl} is negative, defaulting to 0")
             ttl = 0
 
-        return {
+        # Construct the cache setting resource
+        cache_setting = {
             "type": "azion_edge_application_cache_setting",
             "name": main_setting_name,
             "attributes": {
@@ -44,5 +49,11 @@ def create_cache_setting(azion_resources: AzionResource, rule: Dict[str, Any], m
                 "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
             },
         }
-    logging.warning("No caching behavior found. Skipping cache setting creation.")
+
+        logging.info(f"Cache setting created for rule: {rule.get('name', 'Unnamed Rule')}")
+        return cache_setting
+
+    else:
+        logging.warning("No caching behavior found. Skipping cache setting creation.")
+    
     return None
