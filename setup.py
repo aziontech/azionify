@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name="azionify",
     version="1.0.0",
-    description="A tool to convert Akamai Terraform configurations into Azion Terraform configurations.",
+    description="Azionify is a flexible CLI tool designed to convert Terraform configurations from various CDNs into Azion-compatible Terraform configurations.",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     author="Andre Lehdermann Silveira",
