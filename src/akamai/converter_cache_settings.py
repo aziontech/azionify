@@ -3,9 +3,6 @@ from typing import Dict, Any, Optional
 from azion_resources import AzionResource
 from utils import parse_ttl, sanitize_name
 
-from typing import Dict, Any
-import logging
-
 def map_allow_behavior_to_azion(allow_behavior: str, ttl: int) -> Dict[str, Any]:
     """
     Maps the 'allowBehavior' behavior from Akamai to the Azion cache settings configuration.
@@ -106,7 +103,5 @@ def create_cache_setting(azion_resources: AzionResource, behaviors: Dict[str, An
     }
 
     logging.info(f"Cache setting created for rule: {name}")
-    print(f'-$$$$$->DEBUG: {cache_setting}')
     return cache_setting
-    
-    return None
+
