@@ -99,20 +99,11 @@ def process_rules(azion_resources: AzionResource, rules: Any, main_setting_name:
         children = rules.get("children", [])
         if children:
             process_children(azion_resources, children, main_setting_name, origin_hostname)
-        else:
-        # Process non-children rules
-            logging.info("Processing non-children rules directly.")
-            # Process rules directly, without 'children'
-            for rule in rules.get("behaviors", []):
-                if rule.get("name") == "caching":
-                    cache_setting = create_cache_setting(azion_resources, rule, main_setting_name)
-                    if cache_setting:
-                        azion_resources.append(cache_setting)
-                # Handle other behaviors similarly
-                elif rule.get("name") == "allowPost":
-                    process_post_behavior(azion_resources, rule, main_setting_name, origin_hostname)
-                # Add further processing for other behaviors here
-            logging.warning("No children rules found in rules attribute.")
+        
+        behavior = rules.get("behaviors", [])
+        if behavior:
+            print('BEHAVIOR')
+            process_behaviors(azion_resources, behavior, main_setting_name, origin_hostname)
     
     elif isinstance(rules, list):
         logging.info("Rules provided as a list. Processing each rule.")
@@ -120,6 +111,20 @@ def process_rules(azion_resources: AzionResource, rules: Any, main_setting_name:
     
     else:
         logging.warning(f"Unexpected type for rules: {type(rules)}. Skipping rule processing.")
+
+
+def process_behaviors(azion_resources: AzionResource, behavior: List[Dict[str, Any]], main_setting_name: str, origin_hostname: str):
+    for rule in behavior:
+        if rule.get("name") == "caching":
+            #print(f'-->AAAA DEBUG: {behavior}')
+            cache_setting = create_cache_setting(azion_resources, rule, main_setting_name)
+            print(f'-->AAAA DEBUG: {cache_setting}')
+            if cache_setting:
+                azion_resources.append(cache_setting)
+        elif rule.get("name") == "allowPost":
+            process_post_behavior(azion_resources, rule, main_setting_name, origin_hostname)
+        elif rule.get("name") == "webApplicationFirewall":
+            process_waf_behavior(azion_resources, rule)
 
 
 def process_children(azion_resources: AzionResource, children: List[Dict[str, Any]], main_setting_name: str, origin_hostname: str):
@@ -136,6 +141,7 @@ def process_children(azion_resources: AzionResource, children: List[Dict[str, An
         try:
             # Cache Settings processing
             if any(behavior.get("name") == "caching" for behavior in rule.get("behaviors", [])):
+                print(f'-->BBBB DEBUG: {rule}')
                 cache_setting = create_cache_setting(azion_resources, rule, main_setting_name)
                 if cache_setting:
                     logging.info(f"Cache setting created for rule: {rule.get('name', 'Unnamed Rule')}")
@@ -155,8 +161,6 @@ def process_children(azion_resources: AzionResource, children: List[Dict[str, An
             azion_resources.extend(create_rule_engine(azion_resources, rule, main_setting_name, index))
         except ValueError as e:
             logging.error(f"Error processing rule engine for rule {rule.get('name', 'Unnamed Rule')}: {e}")
-
-    
 
 
 def create_main_resources(azion_resources: AzionResource, attributes: Dict[str, Any], main_setting_name: str, origin_hostname: str):
@@ -181,7 +185,7 @@ def create_main_resources(azion_resources: AzionResource, attributes: Dict[str, 
         logging.error(f"Error creating main resources: {e}")
         raise
 
-def add_waf_rule(azion_resources: AzionResource, attributes: Dict[str, Any]):
+def process_waf_behavior(azion_resources: AzionResource, attributes: Dict[str, Any]):
     """
     Adds WAF rule to Azion resources if available.
 
@@ -223,9 +227,6 @@ def convert_akamai_to_azion(azion_resources: AzionResource, attributes: Dict[str
 
     # Process rules
     process_rules(azion_resources, attributes.get("rules", {}), main_setting_name, origin_hostname=origin_hostname)
-
-    # Add WAF rules if available
-    add_waf_rule(azion_resources, attributes)
 
     logging.info(f"Completed conversion for Akamai property: {attributes.get('name', 'Unknown')}")
 

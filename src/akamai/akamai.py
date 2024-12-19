@@ -9,7 +9,6 @@ def generate_azion_config(akamai_config: dict) -> dict:
     Converts Akamai configuration to Azion-compatible configuration.
     """
     azion_resources = AzionResource("azion_resources")
-    global_settings = {}
     try:
         # Step 1: Extract edge_hostname
         edge_hostname = extract_edge_hostname(akamai_config)
@@ -45,8 +44,6 @@ def generate_azion_config(akamai_config: dict) -> dict:
     except Exception as e:
         logging.error(f"Error processing resource: {e}")
         raise
-    
-    azion_resources.append({"global_settings":global_settings})
     
     # Log a summary of the generated resources
     log_conversion_summary(azion_resources.get_azion_resources())
