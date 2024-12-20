@@ -1,8 +1,7 @@
-from locale import normalize
 import logging
 from typing import Dict, Any, Optional
 from azion_resources import AzionResource
-from utils import clean_and_parse_json, sanitize_name
+from utils import sanitize_name
 from akamai.utils import map_origin_protocol_policy, map_origin_type, map_forward_host_header
 
 def create_origin(azion_resources: AzionResource, origin_attributes: Dict[str, Any], main_setting_name: str, edge_hostname: Optional[str], name: Optional[str] = None) -> Optional[Dict[str, Any]]:

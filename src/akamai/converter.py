@@ -1,4 +1,3 @@
-from functools import cache
 import logging
 from typing import Dict, Any, List
 from azion_resources import AzionResource
@@ -167,33 +166,6 @@ def process_children(azion_resources: AzionResource, children: List[Dict[str, An
         children (List[Dict[str, Any]]): The list of Akamai children rules.
         main_setting_name (str): The main setting name for Azion configuration.
     """
-
-    """
-    A children has the following structure:
-    {
-        "behaviors": [
-            {
-            some attributes
-            }
-        ],
-        "children": [
-            {
-                some attributes
-            }
-        ],
-        "comments": "string",
-        "criteria": [
-            {
-                some attributes
-            }
-        ],
-        "criteriaMustSatisfy": "all" or "any",
-        "name": "string",
-        "options": {
-            some attributes
-        }
-    }    
-    """
     # Rules Processing
     for index, rule in enumerate(children):
         rule_name = rule.get("name", "Unnamed Rule")
@@ -338,19 +310,6 @@ def process_post_behavior(azion_resources: AzionResource, resource: Dict[str, An
         else:
             logging.info("'application_acceleration' is already enabled, no changes made.")
 
-
-    """    
-    # Optionally, process updates to specific resource types, like 'azion_edge_application_origin'
-    if resource.get("type") == "azion_edge_application_origin":
-        origin = resource["attributes"].get("origin", {})
-        current_address = origin.get("addresses", [{}])[0].get("address", "")
-        
-        if current_address == "placeholder.example.com":
-            logging.info("Updating origin address with extracted origin_hostname.")
-            origin["addresses"][0]["address"] = origin_hostname
-            resource["attributes"]["origin"] = origin
-            logging.info("Updated origin address with extracted origin_hostname.")
-    """
 
 
 
