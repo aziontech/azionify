@@ -142,10 +142,10 @@ def write_origin_block(f, attributes):
         write_indented(f, "addresses = [", 2)
         for address in addresses:
             address_block = [
-                f'"address" : "{address["address"]}"',
-                f'"is_active" : {str(address.get("is_active", True)).lower()}',
-                f'"server_role" : "{address.get("server_role", "primary")}"',
-                f'"weight" : {address.get("weight", 0)}',
+                f'"address" : "{address["address"]}"'
+                #f'"is_active" : {str(address.get("is_active", True)).lower()}',
+                #f'"server_role" : "{address.get("server_role", "primary")}"',
+                #f'"weight" : {address.get("weight", 0)}',
             ]
             write_indented(f, f'{{ {", ".join(address_block)} }},', 3)
         write_indented(f, "],", 2)
@@ -257,8 +257,10 @@ def write_rule_engine_block(f, resource):
                                 write_indented(f, f'{key} = {str(value).lower()}', 5)
                             elif isinstance(value, (int, float)):
                                 write_indented(f, f'{key} = {value}', 5)
-                            else:
+                            elif str(value).startswith("$"):
                                 write_indented(f, f'{key} = "{value}"', 5)
+                            else:
+                                write_indented(f, f'{key} = {value}', 5)
                     else:
                         write_indented(f, f'target = "{target}"', 5)
                     write_indented(f, "}", 4)
@@ -380,7 +382,6 @@ def write_cache_setting_block(f, resource: dict):
         f (file object): The file to write the Terraform block.
         resource (dict): Resource to be written.
     """
-    print(f'-->DEBUG: {resource}')
     name = resource.get("name", "unnamed_cache_settings")
     try:
         # Validate and normalize cache settings

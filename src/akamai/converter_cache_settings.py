@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 from azion_resources import AzionResource
 from utils import parse_ttl, sanitize_name
 
@@ -47,18 +47,24 @@ def map_allow_behavior_to_azion(allow_behavior: str, ttl: int) -> Dict[str, Any]
     return cache_settings
 
 
-def create_cache_setting(azion_resources: AzionResource, behaviors: Dict[str, Any], main_setting_name: str) -> Optional[Dict[str, Any]]:
+def create_cache_setting(azion_resources: AzionResource, rules: List[Dict[str, Any]], main_setting_name: str, cache_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
     Creates a single Azion cache setting resource.
-    """
 
+    Parameters:
+        rules (List[Dict[str, Any]]): List of rules extracted from Akamai configuration.
+        main_setting_name (str): Name of the main Azion edge application resource.
+
+    Returns:
+        Dict[str, Any]: Azion-compatible cache setting resource.
+    """
     # Extract and validate caching behavior
-    caching_behavior = next((b for b in behaviors.get("behaviors", []) if b.get("name") == "caching"), None)
+    caching_behavior = next((rule['options'] for rule in rules if rule.get("name") == "caching"), None)
     if not caching_behavior:
         logging.warning("No caching behavior found in rule.")
         return None
 
-    name = sanitize_name(behaviors.get('name', 'Unnamed Rule'))
+    name = sanitize_name(cache_name if cache_name else caching_behavior.get('name', 'default_caching'))
     logging.info(f"Creating cache setting for rule: {name}")
 
     # Extract and validate TTL
@@ -80,12 +86,20 @@ def create_cache_setting(azion_resources: AzionResource, behaviors: Dict[str, An
         logging.warning(f"TTL value {ttl} is negative, defaulting to 0")
         ttl = 0
 
-    cache_attributes = map_allow_behavior_to_azion(caching_behavior.get("options", {}).get("allowBehavior", "ALLOW"), ttl)
-    
-    prefreshCache = next((b for b in behaviors.get("behaviors", []) if b.get("name") == "prefreshCache"), None)
+    # Process 'downstreamCache' behavior
+    downstreamCache = next((rule['options'] for rule in rules if rule.get("name") == "downstreamCache"), None)
+    if downstreamCache:
+        if downstreamCache.get("allowBehavior", "ALLOW") == "LESSER":
+            cache_attributes = map_allow_behavior_to_azion("LESSER", ttl)
+        else:
+            cache_attributes = map_allow_behavior_to_azion("ALLOW", ttl)
+    else:
+        cache_attributes = map_allow_behavior_to_azion("ALLOW", ttl)
+
+    # Process 'prefreshCache' behavior
+    prefreshCache = next((rule['options'] for rule in rules if rule.get("name") == "prefreshCache"), None)
     if prefreshCache:
-        # Process 'prefreshCache' behavior
-        if prefreshCache.get("options", {}).get("enabled", False):
+        if prefreshCache.get("enabled", False):
             cache_attributes["enable_stale_cache"] = 'true'
         else:
             cache_attributes["enable_stale_cache"] = 'false'

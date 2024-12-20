@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 class AzionResource:
     # Class-level attribute to store resources
@@ -25,7 +25,7 @@ class AzionResource:
         return cls.azion_resources
 
     @classmethod
-    def query_azion_resource_by_type(cls, resource_type: str) -> Optional[Dict[str, Any]]:
+    def query_azion_resource_by_type(cls, resource_type: str, name: Optional[str] = None) -> Tuple[int, Optional[Dict[str, Any]]]:
         """
         Query a list of Azion resources by the 'type' field.
 
@@ -36,11 +36,10 @@ class AzionResource:
             Optional[Dict[str, Any]]: The first resource with the matching 'type', or None if not found.
         """
         resources = cls.get_azion_resources()
-        for resource in resources:
-            # Assuming "type" is part of the "attributes" dictionary
-            if resource.get("type") == resource_type:
-                return resource
-        return None
+        for index, resource in enumerate(resources):
+            if resource.get("type") == resource_type and (name is None or resource.get("name") == name):
+                return index, resource
+        return -1, None
 
     def __str__(self):
         return f"AzionResource(name={self.name}, attributes={self.azion_resources})"

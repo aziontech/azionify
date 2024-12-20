@@ -1,10 +1,11 @@
+from locale import normalize
 import logging
 from typing import Dict, Any, Optional
 from azion_resources import AzionResource
-from utils import clean_and_parse_json
+from utils import clean_and_parse_json, sanitize_name
 from akamai.utils import map_origin_protocol_policy, map_origin_type, map_forward_host_header
 
-def create_origin(azion_resources: AzionResource, attributes: Dict[str, Any], main_setting_name: str, edge_hostname: Optional[str]) -> Optional[Dict[str, Any]]:
+def create_origin(azion_resources: AzionResource, origin_attributes: Dict[str, Any], main_setting_name: str, edge_hostname: Optional[str], name: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
     Creates the origin resource for Azion, dynamically mapping Akamai addresses.
 
@@ -19,24 +20,9 @@ def create_origin(azion_resources: AzionResource, attributes: Dict[str, Any], ma
     try:
         logging.info("Creating Azion origin resource.")
 
-        # Extract and validate rules
-        rules = attributes.get("rules", {})
-        behaviors = []
-        if isinstance(rules, str):
-            logging.debug("Rules attribute is a string reference. Converting to JSON content.")
-            rules = clean_and_parse_json(rules).get("rules", {})
+        logging.debug(f"Origin Attributes content: {origin_attributes}")
 
-        if isinstance(rules, dict):
-            behaviors = rules.get("behaviors", [])
-        else:
-            logging.warning("Unexpected type for rules. Defaulting to empty behaviors.")
-            logging.debug(f"Rules attribute content: {rules}")
-
-        logging.debug(f"Behaviors attribute content: {behaviors}")
-
-        # Extract origin behavior
-        origin_behavior = next((b for b in behaviors if b.get("name") == "origin"), {})
-        options = origin_behavior.get("options", {})
+        options = origin_attributes.get("options", {})
 
         # Extract origin-specific details
         hostname = options.get("hostname") or edge_hostname or "placeholder.example.com"
@@ -62,10 +48,10 @@ def create_origin(azion_resources: AzionResource, attributes: Dict[str, Any], ma
         ]
 
         # HMAC Authentication
-        hmac_authentication = attributes.get("hmac_authentication", False)
-        hmac_region_name = attributes.get("hmac_region_name", "")
-        hmac_access_key = attributes.get("hmac_access_key", "")
-        hmac_secret_key = attributes.get("hmac_secret_key", "")
+        hmac_authentication = options.get("hmac_authentication", False)
+        hmac_region_name = options.get("hmac_region_name", "")
+        hmac_access_key = options.get("hmac_access_key", "")
+        hmac_secret_key = options.get("hmac_secret_key", "")
 
         # Validate extracted hostname
         if not hostname or hostname == "placeholder.example.com":
@@ -74,11 +60,11 @@ def create_origin(azion_resources: AzionResource, attributes: Dict[str, Any], ma
         # Construct the origin resource
         origin_resource = {
             "type": "azion_edge_application_origin",
-            "name": attributes.get("name", "Default Origin"),
+            "name": sanitize_name(name if name else origin_attributes.get("name", "Default Origin")),
             "attributes": {
                 "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
                 "origin": {
-                    "name": attributes.get("name", "Default Origin"),
+                    "name": sanitize_name(name if name else origin_attributes.get("name", "Default Origin")),
                     "origin_type": origin_type,
                     "addresses": addresses,
                     "origin_protocol_policy": origin_protocol_policy,

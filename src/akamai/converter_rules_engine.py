@@ -50,7 +50,7 @@ def create_rule_engine(azion_resources: AzionResource, rule: Dict[str, Any], mai
             priority = process_rule_priority(processed_rule, index)
 
             # Process behaviors and criteria
-            azion_behaviors, depends_on_behaviors = process_behaviors(azion_resources, behaviors)
+            azion_behaviors, depends_on_behaviors = process_behaviors(azion_resources, behaviors, rule_name)
             azion_criteria = process_criteria(criteria)
 
             # Handling depends_on
@@ -324,7 +324,7 @@ def process_criteria(criteria: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
     return azion_criteria
 
-def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Set[str]]:
+def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, Any]], rule_name: str) -> Tuple[List[Dict[str, Any]], Set[str]]:
     """
     Process and map Akamai behaviors to Azion-compatible behaviors.
 
@@ -364,7 +364,7 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
                 continue
 
             # Handle cache settings dependencies
-            cache_setttings = azion_resources.query_azion_resource_by_type('azion_edge_application_cache_setting')
+            _, cache_setttings = azion_resources.query_azion_resource_by_type('azion_edge_application_cache_setting', sanitize_name(rule_name))
             if cache_setttings:
                 cache_settings_name = cache_setttings.get("name")
                 cache_settings_ref = f'azion_edge_application_cache_setting.{cache_settings_name}'
@@ -373,9 +373,9 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
                 azion_behavior = {
                     "name": "set_cache_policy",
                     "enabled": True,
-                    "target": {"target": f"{cache_settings_ref}.id"},
+                    "target": {"target": cache_settings_ref + ".id"},
                     "description": f"Set cache policy to {options.get('name', '')}"
-                }   
+                }
                 azion_behaviors.append(azion_behavior)
                 seen_behaviors.add("set_cache_policy")
             continue

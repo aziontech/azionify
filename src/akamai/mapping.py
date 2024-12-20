@@ -21,7 +21,7 @@ MAPPING = {
     },
     "criteria": {
         # Request Phase Variables
-        "fileExtension": {"azion_condition": "$$${uri}", "azion_operator": "matches"},
+        "fileExtension": {"azion_condition": "$${uri}", "azion_operator": "matches"},
         "path": {"azion_condition": "$${uri}", "azion_operator": "matches"},
         "hostname": {"azion_condition": "$${host}", "azion_operator": "is_equal"},
         "requestProtocol": {"azion_condition": "$${scheme}", "azion_operator": "is_equal"},
@@ -41,15 +41,15 @@ MAPPING = {
         "geoipContinentCode": {"azion_condition": "$${geoip_continent_code}", "azion_operator": "matches"},
         "geoipRegion": {"azion_condition": "$${geoip_region}", "azion_operator": "matches"},
         "geoipRegionName": {"azion_condition": "$${geoip_region_name}", "azion_operator": "matches"},
-        "cloudletsOrigin": {"azion_condition": "${upstream_addr}", "azion_operator": "matches"},
+        "cloudletsOrigin": {"azion_condition": "$${upstream_addr}", "azion_operator": "matches"},
         
         # Response Phase Variables
-        "responseHeader": {"azion_condition": "${sent_http_header}", "azion_operator": "matches", "phase": "response"},
-        "statusCode": {"azion_condition": "${status}", "azion_operator": "matches", "phase": "response"},
-        "upstreamAddress": {"azion_condition": "${upstream_addr}", "azion_operator": "matches", "phase": "response"},
-        "upstreamCookie": {"azion_condition": "${upstream_cookie_name}", "azion_operator": "matches", "phase": "response"},
-        "upstreamHeader": {"azion_condition": "${upstream_http_header}", "azion_operator": "matches", "phase": "response"},
-        "upstreamStatus": {"azion_condition": "${upstream_status}", "azion_operator": "matches", "phase": "response"}
+        "responseHeader": {"azion_condition": "$${sent_http_header}", "azion_operator": "matches", "phase": "response"},
+        "statusCode": {"azion_condition": "$${status}", "azion_operator": "matches", "phase": "response"},
+        "upstreamAddress": {"azion_condition": "$${upstream_addr}", "azion_operator": "matches", "phase": "response"},
+        "upstreamCookie": {"azion_condition": "$${upstream_cookie_name}", "azion_operator": "matches", "phase": "response"},
+        "upstreamHeader": {"azion_condition": "$${upstream_http_header}", "azion_operator": "matches", "phase": "response"},
+        "upstreamStatus": {"azion_condition": "$${upstream_status}", "azion_operator": "matches", "phase": "response"}
     },
     "behaviors": {
         # Compression
