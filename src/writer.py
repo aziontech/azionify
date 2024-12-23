@@ -1,6 +1,6 @@
 from typing import Dict, Any
 import logging
-from utils import sanitize_name, write_indented
+from utils import sanitize_name, write_indented, resources_filter_by_type
 from io import StringIO
 
 logging.basicConfig(level=logging.INFO)
@@ -37,17 +37,19 @@ def write_depends_on(f, attributes):
         write_indented(f, f"depends_on = [{depends_on_list}]", 1)
 
 
-def write_main_setting_block(f, attributes):
+def write_main_setting_block(f, resource):
     """
     Writes the Terraform block for the main Azion edge application setting.
 
     Parameters:
         f (file object): File object to write to.
-        attributes (dict): Attributes for the main setting.
+        resource (dict): Resource containing the main setting.
     """
     try: 
-        edge_application = attributes["edge_application"]
-        name = edge_application.get("name")
+        attributes = resource.get("attributes", None)
+        edge_application = attributes.get("edge_application")
+
+        name = edge_application.get("name", None)
         if not name:
             name = "Unnamed Edge Application"
         normalized_name = sanitize_name(name)
@@ -104,16 +106,17 @@ def write_main_setting_block(f, attributes):
         logging.error(f"Unexpected error in write_main_setting_block: {e}")
 
 
-def write_origin_block(f, attributes):
+def write_origin_block(f, resource):
     """
     Writes the origin resource block for Azion based on its business rules.
 
     Parameters:
         f (file object): File object to write to.
-        attributes (dict): Attributes for the origin.
+        resource (dict): Origin resource.
     """
     try:
-        origin = attributes["origin"]
+        attributes = resource.get("attributes")
+        origin = attributes.get("origin")
 
         # Extract required values and apply defaults
         normalized_name = sanitize_name(origin["name"])
@@ -175,16 +178,17 @@ def write_origin_block(f, attributes):
         raise
 
 
-def write_domain_block(f, attributes):
+def write_domain_block(f, resource):
     """
     Writes the Terraform block for Azion domain configuration.
 
     Parameters:
         f (file object): File object to write to.
-        attributes (dict): Attributes for the domain resource.
+        resource (dict): Resource dictionary containing the domain attributes.
     """
     try:
-        domain = attributes["domain"]
+        attributes = resource.get("attributes", {})
+        domain = attributes.get("domain", {})
         normalized_name = sanitize_name(domain["name"])
         write_indented(f, f'resource "azion_domain" "{normalized_name}" {{', 0)
         write_indented(f, "domain = {", 1)
@@ -504,35 +508,49 @@ def write_terraform_file(filepath: str, config: Dict[str, Any]):
     """
     try:
         main_setting_name = config.get("global_settings", {}).get("main_setting_name")
+        resouces = config["resources"]
 
         with open(filepath, "w", encoding="utf-8") as f:
             # Write variable and provider blocks
             write_variable_block(f)
             write_provider_block(f)
 
-            # Iterate over resources and write their corresponding blocks
-            for resource in config["resources"]:
-                resource_type = resource.get("type", None)
-                attributes = resource.get("attributes", None)
-                if not resource_type or not attributes or resource_type == "global_settings":
-                    continue
+            # Write main setting block
+            main_setting = resources_filter_by_type(resouces, "azion_edge_application_main_setting")
+            if main_setting:
+                write_main_setting_block(f, main_setting[0])
 
-                if resource_type == "azion_edge_application_main_setting":
-                    write_main_setting_block(f, attributes)
-                elif resource_type == "azion_edge_application_origin":
-                    write_origin_block(f, attributes)
-                elif resource_type == "azion_edge_application_rule_engine":
-                    write_rule_engine_block(f, resource)
-                elif resource_type == "azion_domain":
-                    write_domain_block(f, attributes)
-                elif resource_type == "azion_edge_function":
-                    write_azion_edge_function_block(f, attributes)
-                elif resource_type == "azion_edge_application_cache_setting":
-                    write_cache_setting_block(f, resource)
-                else:
-                    logging.warning(f"Unknown resource type '{resource_type}' encountered. Skipping.")
+            # Write origin block
+            origins = resources_filter_by_type(resouces, "azion_edge_application_origin")
+            if origins:
+                for origin in origins:
+                    write_origin_block(f, origin)
+            
+            # Write application cache block
+            caches = resources_filter_by_type(resouces, "azion_edge_application_cache_setting")
+            if caches:
+                for cache in caches:
+                    write_cache_setting_block(f, cache)
+
+            # Write rules engine block
+            rules_engines = resources_filter_by_type(resouces, "azion_edge_application_rule_engine")
+            if rules_engines:
+                for rule_engine in rules_engines:
+                    write_rule_engine_block(f, rule_engine)
+
+            # Write edge function block
+            edge_functions = resources_filter_by_type(resouces, "azion_edge_function")
+            if edge_functions:
+                for edge_function in edge_functions:
+                    write_azion_edge_function_block(f, edge_function)
+
+            # Write main setting block
+            domains = resources_filter_by_type(resouces, "azion_domain")
+            if domains:
+                for domain in domains:
+                    write_domain_block(f, domain)
 
             logging.info(f"Terraform file successfully written to {filepath}")
-    except Exception as e:
+    except ValueError as e:
         logging.error(f"Error writing Terraform file: {e}")
         raise

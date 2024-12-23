@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 
 logging.basicConfig(level=logging.INFO)
 
@@ -249,3 +249,17 @@ def parse_ttl(ttl_str):
 
     # If none of the conditions match, raise a ValueError for invalid format
     raise ValueError(f"Invalid TTL format: {ttl_str}")
+
+def resources_filter_by_type(resources: List[Dict[str, Any]], resource_type: str) -> List[Dict[str, Any]]:
+    """
+    Filtra os objetos de 'resources' pelo campo 'type'.
+
+    Parâmetros:
+        resources (List[Dict[str, Any]]): Lista de objetos a ser filtrada.
+        resource_type (str): O valor do campo 'type' a ser pesquisado.
+
+    Retorna:
+        List[Dict[str, Any]]: Lista de objetos com o campo 'type' correspondente.
+    """
+    filtered_resources = [resource for resource in resources if resource.get("type") == resource_type]
+    return filtered_resources
