@@ -66,13 +66,6 @@ def process_resource(azion_resources: AzionResource, resource: Dict[str, Any]):
                     logging.error(f"Unexpected error processing {instance_name}: {e}")
                     raise
 
-    # Regenerate resources with updated information, if needed
-    for resource in azion_resources.get_azion_resources():
-        # Here we call the function to process the post behavior and update resources
-        if resource.get("type") == "azion_edge_application_main_setting":
-            process_post_behavior(azion_resources, resource, main_setting_name, origin_hostname)
-
-
     logging.info(f"Finished processing resources. Total Azion resources generated: {len(azion_resources.get_azion_resources())}")
 
 
@@ -96,10 +89,10 @@ def process_rules(azion_resources: AzionResource, rules: Any, main_setting_name:
             rules = {}
 
     if isinstance(rules, dict):
-        behavior = rules.get("behaviors", [])
-        if behavior:
+        behaviors = rules.get("behaviors", [])
+        if behaviors:
             logging.info("Processing behaviors rules.")
-            process_behaviors(azion_resources, behavior, main_setting_name, origin_hostname)
+            process_behaviors(azion_resources, rules, main_setting_name, origin_hostname)
 
         children = rules.get("children", [])
         if children:
@@ -114,33 +107,42 @@ def process_rules(azion_resources: AzionResource, rules: Any, main_setting_name:
         logging.warning(f"Unexpected type for rules: {type(rules)}. Skipping rule processing.")
 
 
-def process_behaviors(azion_resources: AzionResource, behavior: List[Dict[str, Any]], main_setting_name: str, origin_hostname: str):
+def process_behaviors(azion_resources: AzionResource, rule: Dict[str, Any], main_setting_name: str, origin_hostname: str):
     """
-    A children has the following structure:
-    [
-        {
-            "name":"<name>",
-            "options": {
-                some attributes
-            }
-        }
-    ]
+    Processes the list of behaviors rules and converts them into Azion resources.
+    
+    Parameters:
+        azion_resources (AzionResource): The list of Azion resources to append converted resources.
+        rule (Dict[str, Any]): The Akamai rule to process.
+        main_setting_name (str): The main setting name for Azion configuration.
+        origin_hostname (str): The origin hostname for Azion configuration.
     """
+    behaviors = rule.get("behaviors", None)
+    if behaviors is None:
+        logging.warning("No behaviors found in rules. Skipping rule processing.")
+        return
+
     cache_setting = []
-    for rule in behavior:
-        if rule.get("name") == "caching":
-            cache_setting.append(rule) # Cache Settings
-        elif rule.get("name") == "cacheError":
-            cache_setting.append(rule) # Cache Settings
-        elif rule.get("name") == "webApplicationFirewall":
-            process_waf_behavior(azion_resources, rule) # WAF Settings
-        elif rule.get("name") == "origin":
-            origin = create_origin(azion_resources, rule, main_setting_name, origin_hostname, f'behavior_{rule.get("name")}')
+    for behavior in behaviors:
+        if behavior.get("name") == "caching":
+            cache_setting.append(behavior) # Cache Settings
+        elif behavior.get("name") == "cacheError":
+            cache_setting.append(behavior) # Cache Settings
+        elif behavior.get("name") == "webApplicationFirewall":
+            process_waf_behavior(azion_resources, behavior) # WAF Settings
+        elif behavior.get("name") == "allowPost":
+            idx, main_settings = azion_resources.query_azion_resource_by_type('azion_edge_application_main_setting')
+            if main_settings:
+                resources = azion_resources.get_azion_resources()
+                main_settings["attributes"]["edge_application"]["application_acceleration"] = True
+                resources[idx] = main_settings
+        elif behavior.get("name") == "origin":
+            origin = create_origin(azion_resources, behavior, main_setting_name, origin_hostname, rule.get("name"))
             if origin:
                 azion_resources.append(origin)
 
     # Cache Settings
-    cache_setting = create_cache_setting(azion_resources, cache_setting, main_setting_name)
+    cache_setting = create_cache_setting(azion_resources, cache_setting, main_setting_name, rule.get("name"))
     if cache_setting:
         azion_resources.append(cache_setting)
 
@@ -148,7 +150,7 @@ def process_behaviors(azion_resources: AzionResource, behavior: List[Dict[str, A
         if main_settings is None:
             logging.error("Missing azion_edge_application_main_setting in resource. Conversion aborted.")
             return
-        main_settings["caching"] = True
+        main_settings["attributes"]["edge_application"]["caching"] = True
         resources = azion_resources.get_azion_resources()
         resources[idx] = main_settings
 
@@ -169,14 +171,31 @@ def process_children(azion_resources: AzionResource, children: List[Dict[str, An
     # Rules Processing
     for index, rule in enumerate(children):
         rule_name = rule.get("name", "Unnamed Rule")
+        #print(f'$$$-----> DEBUG: children rule {rule_name}')
         try:
             behaviors = rule.get("behaviors", [])
             for behavior in behaviors:
+                #print(f'$$$-----> DEBUG: children rule {rule_name} behavior {behavior.get("name")}')
                 if behavior.get("name") == "caching":
                     cache_setting = create_cache_setting(azion_resources, behaviors, main_setting_name, rule_name)
                     if cache_setting:
                         logging.info(f"Cache setting created for rule: {rule_name}")
                         azion_resources.append(cache_setting)
+
+                if behavior.get("name") == "imageManager":
+                    idx, main_settings = azion_resources.query_azion_resource_by_type('azion_edge_application_main_setting')
+                    if main_settings:
+                        main_settings["attributes"]["edge_application"]["image_optimization"] = True
+                        resources = azion_resources.get_azion_resources()
+                        resources[idx] = main_settings
+
+                if behavior.get("name") == "allowPost":
+                    #print(f'$$$-----> DEBUG: behavior {behavior}')
+                    idx, main_settings = azion_resources.query_azion_resource_by_type('azion_edge_application_main_setting')
+                    if main_settings:
+                        resources = azion_resources.get_azion_resources()
+                        main_settings["attributes"]["edge_application"]["application_acceleration"] = True
+                        resources[idx] = main_settings
 
                 if behavior.get("name") == "origin":
                     origin_setting = create_origin(azion_resources, behaviors[0], main_setting_name, origin_hostname, sanitize_name(rule_name))
@@ -276,42 +295,4 @@ def convert_akamai_to_azion(azion_resources: AzionResource, attributes: Dict[str
     process_rules(azion_resources, attributes.get("rules", {}), main_setting_name, origin_hostname=origin_hostname)
 
     logging.info(f"Completed conversion for Akamai property: {attributes.get('name', 'Unknown')}")
-
-def process_post_behavior(azion_resources: AzionResource, resource: Dict[str, Any], main_setting_name: str, origin_hostname: str):
-    """
-    Process behaviors related to `allowPost` and enable relevant settings in Azion resources.
-    
-    Parameters:
-        azion_resources (AzionResource): The list of Azion resources to append converted resources.
-        resource (Dict[str, Any]): The current Azion resource being processed.
-        main_setting_name (str): The main setting name for Azion configuration.
-        origin_hostname (str): The origin hostname for Azion configuration.
-    """
-
-    logging.info("Checking 'allowPost' behavior and enabling 'application_acceleration' if necessary.")
-
-    if resource.get("name") == "allowPost":
-        # Get current 'application_acceleration' value
-        idx, main_settings = azion_resources.query_azion_resource_by_type('azion_edge_application_main_setting')
-        if main_settings is None:
-            logging.error("Missing azion_edge_application_main_setting in resource. Conversion aborted.")
-            return
-        main_setting_attributes = main_settings.get("attributes", {})
-        current_application_acceleration = main_setting_attributes.get("application_acceleration", False)
-
-        # Only update if it's not already enabled
-        if not current_application_acceleration:
-            logging.info("Enabling 'application_acceleration' in azion_edge_application_main_setting.")
-            main_setting_attributes["application_acceleration"] = True
-            main_settings["attributes"] = main_setting_attributes
-            resources = azion_resources.get_azion_resources()
-            resources[idx] = main_settings
-            logging.info("Enabled 'application_acceleration' in azion_edge_application_main_setting.")
-        else:
-            logging.info("'application_acceleration' is already enabled, no changes made.")
-
-
-
-
-
 

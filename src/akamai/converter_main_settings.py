@@ -69,7 +69,7 @@ def create_main_setting(azion_resources: AzionResource, attributes: Dict[str, An
         "debug_rules": False,
         "caching": True,
         "edge_firewall": True,
-        "edge_functions": False,
+        "edge_functions": True,
         "image_optimization": False,
         "http3": False,
         "application_acceleration": False,

@@ -38,12 +38,6 @@ def map_allow_behavior_to_azion(allow_behavior: str, ttl: int) -> Dict[str, Any]
         cache_settings["browser_cache_settings_maximum_ttl"] = 0
         logging.info("Mapped 'LESSER' to browser_cache_settings: 'honor'")
 
-    else:
-        # For any other unexpected value, default to 'honor'
-        cache_settings["browser_cache_settings"] = "honor"
-        cache_settings["browser_cache_settings_maximum_ttl"] = 0
-        logging.warning(f"Unexpected allow_behavior '{allow_behavior}', defaulting to 'honor'")
-
     return cache_settings
 
 
@@ -70,7 +64,7 @@ def create_cache_setting(azion_resources: AzionResource, rules: List[Dict[str, A
     # Extract and validate TTL
     ttl = 0
     try:
-        ttl = caching_behavior.get("options", {}).get("ttl", 3600)
+        ttl = caching_behavior.get("ttl", '3600')
         ttl = parse_ttl(ttl)
     except (ValueError, TypeError):
         logging.warning(f"Invalid TTL value: {ttl}, defaulting to 3600")
@@ -94,7 +88,7 @@ def create_cache_setting(azion_resources: AzionResource, rules: List[Dict[str, A
         else:
             cache_attributes = map_allow_behavior_to_azion("ALLOW", ttl)
     else:
-        cache_attributes = map_allow_behavior_to_azion("ALLOW", ttl)
+        cache_attributes = map_allow_behavior_to_azion("DEFAULT", ttl)
 
     # Process 'prefreshCache' behavior
     prefreshCache = next((rule['options'] for rule in rules if rule.get("name") == "prefreshCache"), None)

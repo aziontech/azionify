@@ -354,12 +354,12 @@ def validate_cache_settings(cache_settings: dict) -> dict:
             )
             cdn_cache_ttl = 60
 
-        enable_stale_cache = cache_settings.get("enable_stale_cache", True)
+        enable_stale_cache = cache_settings.get("enable_stale_cache", "false").lower()
         if enable_stale_cache not in ["true", "false"]:
             logging.warning(
-                f"Invalid enable_stale_cache '{enable_stale_cache}', defaulting to true"
+                f"Invalid enable_stale_cache '{enable_stale_cache}', defaulting to false"
             )
-            enable_stale_cache = "true"
+            enable_stale_cache = "false"
 
         # Return validated settings
         return {
@@ -405,7 +405,7 @@ def write_cache_setting_block(f, resource: dict):
         write_indented(f, f'adaptive_delivery_action = "{validated_settings["adaptive_delivery_action"]}"', 2)
         write_indented(f, f'cache_by_query_string = "{validated_settings["cache_by_query_string"]}"', 2)
         write_indented(f, f'cache_by_cookies = "{validated_settings["cache_by_cookies"]}"', 2)
-        write_indented(f, f'enable_stale_cache = "{validated_settings["enable_stale_cache"]}"', 2)
+        write_indented(f, f'enable_stale_cache = {validated_settings["enable_stale_cache"]}', 2)
         write_indented(f, "}", 1)
         write_indented(f, f'edge_application_id = azion_edge_application_main_setting.{name}.edge_application.application_id', 1)
         write_indented(f, "}", 0)
