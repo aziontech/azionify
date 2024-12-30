@@ -38,16 +38,19 @@ def create_domain(azion_resources: AzionResource, attributes: Dict[str, Any], ma
         # Set digital_certificate_id based on cert_provisioning_type
         digital_certificate_id = None  # Default to Azion SAN certificate
         for hostname in hostnames:
-            cert_provisioning_type = hostname.get("cert_provisioning_type")
-            if cert_provisioning_type == "CPS_MANAGED":
-                digital_certificate_id = '"lets_encrypt"'  # Add quotes for Terraform compatibility
-                break
-            elif cert_provisioning_type == "EXISTING_CERTIFICATE":
-                digital_certificate_id = hostname.get("certificate_id", None)  # Assume user provides an integer ID
-                if not isinstance(digital_certificate_id, int):
-                    logging.warning("Invalid or missing certificate ID for EXISTING_CERTIFICATE. Defaulting to null.")
-                    digital_certificate_id = None
-                break
+            digital_certificate_id = "null"
+            break
+
+            #cert_provisioning_type = hostname.get("cert_provisioning_type")
+            #if cert_provisioning_type == "CPS_MANAGED":
+            #    digital_certificate_id = <certificate_id>
+            #    break
+            #elif cert_provisioning_type == "DEFAULT":
+            #    digital_certificate_id = "null"
+            #    break
+            #else:
+            #    digital_certificate_id = "lets_encrypt"
+        
 
         # Construct domain resource
         domain_resource = {

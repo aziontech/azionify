@@ -27,10 +27,11 @@ class AzionResource:
     @classmethod
     def query_azion_resource_by_type(cls, resource_type: str, name: Optional[str] = None) -> Tuple[int, Optional[Dict[str, Any]]]:
         """
-        Query a list of Azion resources by the 'type' field.
+        Query a list of Azion resources by the 'type' field. Return the first matching resource.
 
         Parameters:
             resource_type (str): The value of the 'type' field to search for.
+            name (Optional[str]): The value of the 'name' field to search for.
 
         Returns:
             Optional[Dict[str, Any]]: The first resource with the matching 'type', or None if not found.
@@ -40,6 +41,44 @@ class AzionResource:
             if resource.get("type") == resource_type and (name is None or resource.get("name") == name):
                 return index, resource
         return -1, None
+
+    @classmethod
+    def query_all_azion_resource_by_type(cls, resource_type: str) -> List[Optional[Dict[str, Any]]]:
+        """
+        Query a list of Azion resources by the 'type' field. Return all matching resources.
+
+        Parameters:
+            resource_type (str): The value of the 'type' field to search for.
+
+        Returns:
+            List[Optional[Dict[str, Any]]]: A list of resources with the matching 'type', or an empty list if not found.
+        """
+        resources = cls.get_azion_resources()
+        matched_resources = []
+        for index, resource in enumerate(resources):
+            if resource.get("type") == resource_type:
+                matched_resources.append((index, resource))
+        return matched_resources
+
+    @classmethod
+    def query_azion_origin_by_address(cls, origin_address: str) -> Optional[Dict[str, Any]]:
+        """
+        Query a list of Azion resource by origin resources by the 'origin_address' field. Return the first matching resource.
+
+        Parameters:
+            origin_address (str): The value of the 'origin_address' field to search for.
+
+        Returns:
+            Optional[Dict[str, Any]]: The first resource with the matching 'origin_address', or None if not found.
+        """
+        origins = cls.query_all_azion_resource_by_type('azion_edge_application_origin')
+        for _,origin in origins:
+            origin_attributes = origin.get("attributes", {})
+            origin_addresses = origin_attributes.get("origin", {}).get("addresses", [])
+            for origin_addr in origin_addresses:
+                if origin_addr.get("address") == origin_address:
+                    return origin
+        return None
 
     def __str__(self):
         return f"AzionResource(name={self.name}, attributes={self.azion_resources})"

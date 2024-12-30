@@ -2,10 +2,17 @@ import logging
 from typing import Dict, List, Any, Set, Tuple
 from azion_resources import AzionResource
 from akamai.mapping import MAPPING
-from akamai.utils import map_forward_host_header, map_origin_type, map_variable
+from akamai.utils import map_forward_host_header, map_origin_type, replace_variables, map_operator
 from utils import sanitize_name
 
-def create_rule_engine(azion_resources: AzionResource, rule: Dict[str, Any], main_setting_name: str, index: int) -> List[Dict[str, Any]]:
+default_criteria = {
+    "variable": "$${uri}",
+    "operator": "starts_with",
+    "conditional": "if",
+    "input_value": "/"
+}
+
+def create_rule_engine(azion_resources: AzionResource, rule: Dict[str, Any], main_setting_name: str, index: int, parent_rule_name: str = None, name: str = None) -> List[Dict[str, Any]]:
     """
     Create a rule engine resource from Akamai rule data.
 
@@ -18,27 +25,15 @@ def create_rule_engine(azion_resources: AzionResource, rule: Dict[str, Any], mai
         dict: Azion rule engine resource
     """
     resources = []
-    rule_name = rule.get("name", "Unnamed Rule")
+    rule_name = name if name else rule.get("name", "Unnamed Rule")
 
-    logging.info(f"Processing rule: {rule_name} with index {index}")
-
-    # Process children rules if present
-    children = rule.get("children", [])
-    if children:
-        logging.info(f"Rule '{rule_name}' has {len(children)} child rules. Delegating to process_children.")
-        resources.extend(process_children(azion_resources, children, main_setting_name, index))
-        return resources
-
-    # Validate rule before processing
-    if not validate_rule_compatibility(rule):
-        logging.warning(f"Rule '{rule_name}' is not compatible with Azion format. Skipping.")
-        return resources
+    logging.info(f"[Rules Engine] Processing rule: '{rule_name}' with index {index}")
 
     # Extract behaviors and criteria
     behaviors = rule.get("behaviors", [])
     criteria = rule.get("criteria", [])
 
-    logging.info(f"Found {len(behaviors)} behaviors and {len(criteria)} criteria for rule: {rule_name}")
+    logging.info(f"[Rules Engine] Found {len(behaviors)} behaviors and {len(criteria)} criteria for rule: '{rule_name}'")
 
     try:
         # Create resource if either behaviors or criteria exist
@@ -50,7 +45,7 @@ def create_rule_engine(azion_resources: AzionResource, rule: Dict[str, Any], mai
             priority = process_rule_priority(processed_rule, index)
 
             # Process behaviors and criteria
-            azion_behaviors, depends_on_behaviors = process_behaviors(azion_resources, behaviors, rule_name)
+            azion_behaviors, depends_on_behaviors = process_behaviors(azion_resources, behaviors, rule_name, parent_rule_name)
             azion_criteria = process_criteria(criteria)
 
             # Handling depends_on
@@ -87,7 +82,7 @@ def create_rule_engine(azion_resources: AzionResource, rule: Dict[str, Any], mai
     return resources
 
 
-def process_children(azion_resources: AzionResource,children: List[Dict[str, Any]], main_setting_name: str, parent_index: int) -> List[Dict[str, Any]]:
+def process_children(azion_resources: AzionResource,children: List[Dict[str, Any]], main_setting_name: str, parent_index: int, rule_name: str) -> List[Dict[str, Any]]:
     """
     Process child rules and create corresponding Azion resources.
     
@@ -104,41 +99,15 @@ def process_children(azion_resources: AzionResource,children: List[Dict[str, Any
 
     for index, child in enumerate(children):
         try:
+            logging.info(f"######--->[process_children] Processing parent rule: {rule_name}, child rule: {child.get('name', 'unnamed')}")
+            normalized_name = sanitize_name(child.get("name", "unnamed"))
             # Calculate child priority based on parent index and child position
             child_index = (parent_index * child_priority_multiplier) + index
-            resources.extend(create_rule_engine(azion_resources, child, main_setting_name, child_index))
+            resources.extend(create_rule_engine(azion_resources, child, main_setting_name, child_index, f'{rule_name}_{normalized_name}'))
         except ValueError as e:
             logging.error(f"Error processing child rule {child.get('name', 'unnamed')}: {str(e)}")
     return resources
 
-def validate_rule_compatibility(rule: Dict[str, Any]) -> bool:
-    """
-    Validate if a rule can be properly converted to Azion format.
-    
-    Parameters:
-        rule (dict): The rule to validate.
-    
-    Returns:
-        bool: True if rule is compatible, False otherwise.
-    """
-    if not rule:
-        return False
-
-    required_fields = {"name", "behaviors"}
-    if not all(field in rule for field in required_fields):
-        logging.warning(f"Missing required fields in rule: {rule.get('name', 'Unknown')}")
-        return False
-        
-    # Verifica se os behaviors são mapeáveis
-    behaviors = rule.get("behaviors", [])
-    for behavior in behaviors:
-        behavior_name = behavior.get("name", "")
-        if not (MAPPING.get("advanced_behaviors", {}).get(behavior_name) or 
-                MAPPING.get("behaviors", {}).get(behavior_name)):
-            logging.warning(f"Unmappable behavior '{behavior_name}' in rule: {rule.get('name')}")
-            return False
-            
-    return True
 
 def process_rule_priority(rule: Dict[str, Any], index: int) -> int:
     """
@@ -181,7 +150,7 @@ def process_conditional_rule(rule: Dict[str, Any]) -> Dict[str, Any]:
         condition_name = condition.get("name", "")
         if condition_name in MAPPING.get("criteria", {}):
             mapping = MAPPING["criteria"][condition_name]
-            
+
             # Handle content type criteria specially
             if condition_name == "contentType":
                 content_types = condition.get("options", {}).get("values", [])
@@ -206,33 +175,6 @@ def process_conditional_rule(rule: Dict[str, Any]) -> Dict[str, Any]:
         
     return processed_rule
 
-def map_operator(akamai_operator: str) -> str:
-    """
-    Maps Akamai operators to Azion operators.
-    
-    Parameters:
-        akamai_operator (str): Akamai operator
-        
-    Returns:
-        str: Azion operator
-    """
-    operator_map = {
-        "EQUALS": "is_equal",
-        "EQUALS_ONE_OF": "is_equal",
-        "DOES_NOT_EQUAL": "is_not_equal",
-        "DOES_NOT_EQUAL_ONE_OF": "is_not_equal",
-        "MATCHES": "matches",
-        "MATCHES_ONE_OF": "matches",
-        "DOES_NOT_MATCH": "does_not_match",
-        "DOES_NOT_MATCH_ONE_OF": "does_not_match",
-        "STARTS_WITH": "starts_with",
-        "STARTS_WITH_ONE_OF": "starts_with",
-        "DOES_NOT_START_WITH": "does_not_start_with",
-        "EXISTS": "exists",
-        "DOES_NOT_EXIST": "does_not_exist"
-    }
-    return operator_map.get(akamai_operator, "matches")  # default to matches if unknown
-
 def process_criteria(criteria: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Processes and maps Akamai criteria to Azion-compatible criteria.
@@ -243,11 +185,15 @@ def process_criteria(criteria: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     Returns:
         List[Dict[str, Any]]: List of Azion criteria grouped by phase.
     """
+    azion_criteria = []
+
     if not criteria:
-        return []
+        # Default criteria for when no criteria is defined
+        azion_criteria.append({"entries": [default_criteria]})
+        return azion_criteria
 
     # Map Akamai's criteriaMustSatisfy to Azion's conditional
-    criteria_must_satisfy = criteria[0].get("criteriaMustSatisfy", "all")
+    criteria_must_satisfy = criteria[0].get("criteriaMustSatisfy", "one")
     conditional_map = {
         "all": "and",
         "any": "or",
@@ -274,7 +220,7 @@ def process_criteria(criteria: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
         try:
             # Map operator
-            akamai_operator = options.get("matchOperator", "MATCHES")
+            akamai_operator = options.get("matchOperator", "EQUALS")
             azion_operator = map_operator(akamai_operator)
 
             # Handle input values
@@ -286,12 +232,8 @@ def process_criteria(criteria: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             if azion_operator in {"exists", "does_not_exist"}:
                 input_value = None
             else:
-                # Handle single vs multiple values
-                if len(values) > 1:
-                    if name == "fileExtension":
-                        input_value = r".*\\.(%s)$" % "|".join(values)
-                    else:
-                        input_value = "|".join(values)
+                if callable(mapping.get("input_value")):
+                    input_value = mapping["input_value"](values)
                 elif values:
                     input_value = values[0]
                 else:
@@ -316,7 +258,6 @@ def process_criteria(criteria: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             logging.error(f"Error processing criterion {name}: {str(e)}")
 
     # Assemble criteria groups
-    azion_criteria = []
     if request_entries:
         azion_criteria.append({"entries": request_entries})
     if response_entries:
@@ -324,7 +265,7 @@ def process_criteria(criteria: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
     return azion_criteria
 
-def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, Any]], rule_name: str) -> Tuple[List[Dict[str, Any]], Set[str]]:
+def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, Any]], rule_name: str, parent_rule_name: str = None) -> Tuple[List[Dict[str, Any]], Set[str]]:
     """
     Process and map Akamai behaviors to Azion-compatible behaviors.
 
@@ -343,14 +284,26 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
     depends_on = set()
 
     for behavior in behaviors:
-        behavior_name = behavior.get("name")
-        if not behavior_name or behavior_name not in MAPPING.get("behaviors", {}):
-            logging.warning(f"Unmapped behavior: {behavior_name}")
+        ak_behavior_name = behavior.get("name")
+        if not ak_behavior_name or ak_behavior_name not in MAPPING.get("behaviors", {}):
+            logging.warning(f"Unmapped behavior: {ak_behavior_name}")
             logging.debug(f"Behavior options: {behavior.get('options', {})}")
             continue
 
-        mapping = MAPPING["behaviors"][behavior_name]
+        mapping = MAPPING["behaviors"][ak_behavior_name]
         options = behavior.get("options", {})
+
+        # Handle behavior name
+        if callable(mapping.get("azion_behavior")):
+            try:
+                behavior_name = mapping["azion_behavior"](options)
+            except ValueError as e:
+                logging.error(f"Error processing azion_behavior in behavior '{ak_behavior_name}': {e}")
+        else:
+            behavior_name = mapping["azion_behavior"]
+
+        logging.info(f"[process_behaviors] rule_name = {rule_name} mapped '{ak_behavior_name}' to '{behavior_name}', parent_rule = {parent_rule_name}")
+        # Handle cache policy
 
         # Skip behaviors that are explicitly disabled
         if "enabled" in options and options["enabled"] is False:
@@ -364,7 +317,7 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
                 continue
 
             # Handle cache settings dependencies
-            _, cache_setttings = azion_resources.query_azion_resource_by_type('azion_edge_application_cache_setting', sanitize_name(rule_name))
+            _, cache_setttings = azion_resources.query_azion_resource_by_type('azion_edge_application_cache_setting', sanitize_name(parent_rule_name))
             if cache_setttings:
                 cache_settings_name = cache_setttings.get("name")
                 cache_settings_ref = f'azion_edge_application_cache_setting.{cache_settings_name}'
@@ -380,9 +333,68 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
                 seen_behaviors.add("set_cache_policy")
             continue
 
+        # Handle special behavior: set_origin
+        if mapping["azion_behavior"] == "set_origin":
+            # Unique key for set_origin
+            if "set_origin" in seen_behaviors:
+                continue
+
+            # Handle origin settings dependencies
+            origin_settings = azion_resources.query_azion_origin_by_address(options.get("hostname", ""))
+            if origin_settings:
+                origin_settings_name = origin_settings.get("name")
+                origin_settings_ref = f'azion_edge_application_origin.{origin_settings_name}'
+                depends_on.add(origin_settings_ref)
+
+                azion_behavior = {
+                    "name": "set_origin",
+                    "enabled": True,
+                    "target": {"target": origin_settings_ref + ".id"},
+                    "description": f"Set origin to {options.get('name', '')}"
+                }
+                azion_behaviors.append(azion_behavior)
+                seen_behaviors.add("set_origin")
+            else:
+                logging.debug(f"Origin settings not found for rule '{rule_name}'. Skipping.")
+                continue
+
+            # Handle compression
+            if options.get("compress", True):
+                # Unique key for enable_gzip
+                if "origin_enable_gzip" in seen_behaviors:
+                    continue
+
+                azion_behavior = {
+                    "name": "enable_gzip",
+                    "enabled": True,
+                    "description": "Compress content",
+                    "target": {}
+                }
+                azion_behaviors.append(azion_behavior)
+                seen_behaviors.add("origin_enable_gzip")
+
+            # Handle true client ip (set_host_header)
+            if options.get("enableTrueClientIp", False) == True:
+                trueClientIpHeader = options.get("trueClientIpHeader", "")
+                if trueClientIpHeader:
+                    # Unique key for set_host_header
+                    if "origin_set_host_header" in seen_behaviors:
+                        continue
+
+                    azion_behavior = {
+                        "name": "set_host_header",
+                        "enabled": True,
+                        "description": f"Set host header to {trueClientIpHeader}",
+                        "target": { "target": '"' + f'{trueClientIpHeader}: ' + "$${remote_addr}" + '"' }
+                    }
+                    azion_behaviors.append(azion_behavior)
+                    seen_behaviors.add("origin_set_host_header")
+            continue
+        
+
         # Handle special behavior: set_host_header
         if mapping["azion_behavior"] == "set_host_header":
-            # Unique key for set_cache_policy
+            # Unique key for set_host_header
             if "set_host_header" in seen_behaviors:
                 continue
 
@@ -413,9 +425,9 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
                 "enabled": True,
                 "description": behavior.get("description", f"Behavior for {behavior_name}"),
                 "target": {
-                    "captured_array": f'{map_variable(options.get("variableValue"), context="captured_array")}',
+                    "captured_array": f'{replace_variables(options.get("variableValue"))}',
                     "subject": '$${variable}',
-                    "regex": f'{options.get("regex")}'
+                    "regex": f'{replace_variables(options.get("regex"))}'
                 },
             }
 
@@ -431,12 +443,12 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
 
 
         # Skip if we've already processed this behavior type
-        if mapping["azion_behavior"] in seen_behaviors:
-            logging.debug(f"Behavior '{mapping['azion_behavior']}' already processed. Skipping.")
+        if behavior_name in seen_behaviors:
+            logging.debug(f"Behavior '{behavior_name}' already processed. Skipping.")
             continue
 
         azion_behavior = {
-            "name": mapping["azion_behavior"],
+            "name": behavior_name,
             "enabled": behavior.get("options", {}).get("enabled", True),
             "description": behavior.get("description", f"Behavior for {behavior_name}")
         }
@@ -461,14 +473,14 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
                     logging.error(f"Error accessing target for behavior '{behavior_name}': {e}")
 
             # Special handling for origin
-            if azion_behavior["name"] == "set_origin":
+            if behavior_name == "set_origin":
                 target["origin_type"] = map_origin_type(options.get("originType", "CUSTOMER"))
 
             if target:  # Only add target if we have values
                 azion_behavior["target"] = target
 
         azion_behaviors.append(azion_behavior)
-        seen_behaviors.add(mapping["azion_behavior"])
+        seen_behaviors.add(behavior_name)
 
     # Add consolidated cache policy if we collected any optionss
     if cache_policy_options:

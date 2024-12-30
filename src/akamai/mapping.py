@@ -21,13 +21,25 @@ MAPPING = {
     },
     "criteria": {
         # Request Phase Variables
-        "fileExtension": {"azion_condition": "$${uri}", "azion_operator": "matches"},
-        "path": {"azion_condition": "$${uri}", "azion_operator": "matches"},
+        "fileExtension": {
+            "azion_condition": "$${request_uri}}", 
+            "azion_operator": "matches",
+            "input_value": lambda values: r"\\.(%s)(\\?.*)?$" % "|".join(values).replace('/', r'\\/')
+        },
+        "path": {
+            "azion_condition": "$${uri}", 
+            "azion_operator": "matches",
+            "input_value": lambda values: r"(%s)" % "|".join(values).replace('/', r'\\/')
+        },
         "hostname": {"azion_condition": "$${host}", "azion_operator": "is_equal"},
         "requestProtocol": {"azion_condition": "$${scheme}", "azion_operator": "is_equal"},
         "deviceGroup": {"azion_condition": "$${device_group}", "azion_operator": "is_equal"},
         "geoip_country_code": {"azion_condition": "$${geoip_country_code}", "azion_operator": "is_equal"},
-        "contentType": {"azion_condition": "$${content_type}", "azion_operator": "matches"},
+        "contentType": {
+            "azion_condition": "$${content_type}", 
+            "azion_operator": "matches",
+            "input_value": lambda values: r"(%s)" % "|".join(values).replace('/', r'\\/').replace('.', r'\\.')
+        },
         "queryString": {"azion_condition": "$${args}", "azion_operator": "matches"},
         "queryStringParam": {"azion_condition": "$${arg_param}", "azion_operator": "matches"},
         "cookie": {"azion_condition": "$${cookie_name}", "azion_operator": "matches"},
@@ -49,7 +61,14 @@ MAPPING = {
         "upstreamAddress": {"azion_condition": "$${upstream_addr}", "azion_operator": "matches", "phase": "response"},
         "upstreamCookie": {"azion_condition": "$${upstream_cookie_name}", "azion_operator": "matches", "phase": "response"},
         "upstreamHeader": {"azion_condition": "$${upstream_http_header}", "azion_operator": "matches", "phase": "response"},
-        "upstreamStatus": {"azion_condition": "$${upstream_status}", "azion_operator": "matches", "phase": "response"}
+        "upstreamStatus": {"azion_condition": "$${upstream_status}", "azion_operator": "matches", "phase": "response"},
+        "removeVary": {
+            "azion_condition": "$${request_uri}",
+            "azion_operator": "starts_with",
+            "input_value": "/",
+            "conditional": "if",
+            "phase": "response"
+        },
     },
     "behaviors": {
         # Compression
@@ -94,7 +113,7 @@ MAPPING = {
             "logCookies": {"azion_behavior": "add_request_header", "target": {"name": "Set-Cookie", "value": "log_cookie"}},
         },
 
-        # Headers (adicionar)
+        # Headers (adding/removing/modifying)
         "modifyOutgoingResponseHeader": {"azion_behavior": "add_response_header", "target": {"name": "header_name", "value": "header_value"}},
         "removeOutgoingResponseHeader": {"azion_behavior": "filter_response_header", "target": "header_name"},
         "allowTransferEncoding": {
@@ -104,23 +123,27 @@ MAPPING = {
                 "value": lambda options: "chunked" if options.get("enabled", True) else None
             }
         },
+        "removeVary": {
+            "azion_behavior": "filter_request_header",
+            "target": {"name": "Remove Vary", "value": "Vary"}
+        },
 
         # Redirects
-        "redirect": {"azion_behavior": "redirect_to_301", "target": "location"},
-        "redirectPermanent": {"azion_behavior": "redirect_to_301", "target": "location"},
-        "redirectTemporary": {"azion_behavior": "redirect_to_302", "target": "location"},
-        "redirectToHttps": {"azion_behavior": "redirect_to_https"},
+        "redirect": {
+            "azion_behavior": lambda options: "redirect_http_to_https" if options.get("responseCode") not in [301, 302] else f"redirect_to_{options.get('responseCode')}",
+             "target": {
+                "target": lambda options: f"$${{scheme}}://{options.get('destinationHostnameOther', '$${{host}}')}/$${{request_uri}}"
+             }
+        },
+        "redirectPermanent": {"azion_behavior": "redirect_http_to_https", "target": "location"},
+        "redirectTemporary": {"azion_behavior": "redirect_http_to_https", "target": "location"},
+        "redirectToHttps": {"azion_behavior": "redirect_http_to_https"},
 
         # Origin
         "origin": {
             "azion_behavior": "set_origin",
             "target": {
-                "addresses": lambda options: [{"address": options.get("hostname"), "weight": 1}],
-                "origin_type": "originType",
-                "host_header": lambda options: options.get("forwardHostHeader", "${host}"),
-                "connection_timeout": lambda options: options.get("connection_timeout", 10),
-                "timeout_between_bytes": lambda options: options.get("timeout_between_bytes", 5),
-                "use_tls": lambda options: bool(options.get("httpsPort") == 443),
+                "enabled": "enabled"
             }
         },
         "cloudletsOrigin": {
@@ -160,14 +183,14 @@ MAPPING = {
         "rewriteUrl": {
             "azion_behavior": "rewrite_request",
             "target": {
-                "path": "targetUrl"
+                "target": "targetUrl"
             }
         },
         "rewrite_request": {"azion_behavior": "rewrite_request", "target": "path"},
         "baseDirectory": {
             "azion_behavior": "rewrite_request",
             "target": {
-                "path": lambda options: f"{options.get('baseDirectory', '')}${{uri}}" # Concatenate baseDirectory with original path
+                "target": lambda options: f"{options.get('baseDirectory', '')}$${{uri}}" # Concatenate baseDirectory with original path
             }
         },
 

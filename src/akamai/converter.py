@@ -88,26 +88,43 @@ def process_rules(azion_resources: AzionResource, rules: Any, main_setting_name:
             logging.error("Failed to parse rules or empty rules content.")
             rules = {}
 
-    if isinstance(rules, dict):
-        behaviors = rules.get("behaviors", [])
-        if behaviors:
-            logging.info("Processing behaviors rules.")
-            process_behaviors(azion_resources, rules, main_setting_name, origin_hostname)
+    logging.info("[Akamai Rules] Processing rules starting.")
 
+    if isinstance(rules, dict):
+        normalized_name = sanitize_name(rules.get("name", "unnamed_rule"))
+        behaviors = rules.get("behaviors", [])
         children = rules.get("children", [])
-        if children:
-            logging.info("Processing children rules.")
-            process_children(azion_resources, children, main_setting_name, origin_hostname)
+
+        logging.info(f"[Akamai Rules] Found {len(behaviors)} behaviors and {len(children)} children for rule: '{normalized_name}'")
+    
+        if len(behaviors) > 0:
+            process_rule_behaviors(azion_resources, rules, main_setting_name, origin_hostname, 0, normalized_name)   
+
+        if len(children) > 0:
+            process_rule_children(azion_resources, children, main_setting_name, origin_hostname, 0, normalized_name)
     
     elif isinstance(rules, list):
-        logging.info("Rules provided as a list. Processing each rule.")
-        process_children(azion_resources, rules, main_setting_name, origin_hostname)
+        logging.debug("Rules provided as a list. Processing each rule.")
+        for index, rule in enumerate(rules):
+            normalized_name = sanitize_name(rule.get("name", "unnamed_rule"))
+            behaviors = rules.get("behaviors", [])
+            children = rules.get("children", [])
+
+            logging.info(f"[Akamai Rules] Found {len(behaviors)} behaviors and {len(children)} children for rule: '{normalized_name}'")
+
+            if behaviors:
+                process_rule_behaviors(azion_resources, rule, main_setting_name, origin_hostname, index, normalized_name)
+
+            if len(children) > 0:
+                process_rule_children(azion_resources, children, main_setting_name, origin_hostname, index, normalized_name)
     
     else:
-        logging.warning(f"Unexpected type for rules: {type(rules)}. Skipping rule processing.")
+        logging.warning(f"[Akamai Rules] Unexpected type for rules: {type(rules)}. Skipping rule processing.")
+
+    logging.info("[Akamai Rules] Processing rules finished.")
 
 
-def process_behaviors(azion_resources: AzionResource, rule: Dict[str, Any], main_setting_name: str, origin_hostname: str):
+def process_rule_behaviors(azion_resources: AzionResource, rule: Dict[str, Any], main_setting_name: str, origin_hostname: str, index: int, normalized_name: str):
     """
     Processes the list of behaviors rules and converts them into Azion resources.
     
@@ -119,47 +136,44 @@ def process_behaviors(azion_resources: AzionResource, rule: Dict[str, Any], main
     """
     behaviors = rule.get("behaviors", None)
     if behaviors is None:
-        logging.warning("No behaviors found in rules. Skipping rule processing.")
+        logging.warning("[Akamai Rules] No behaviors found in rules. Skipping rule processing.")
         return
+
+    logging.info(f"[Akamai Rules] Processing behaviors for rule '{normalized_name}'.")
 
     cache_setting = []
     for behavior in behaviors:
-        if behavior.get("name") == "caching":
-            cache_setting.append(behavior) # Cache Settings
-        elif behavior.get("name") == "cacheError":
-            cache_setting.append(behavior) # Cache Settings
+        if behavior.get("name") == "caching": # Cache Settings
+            cache_setting.append(behavior) 
+            cache_setting = create_cache_setting(azion_resources, cache_setting, main_setting_name, rule.get("name"))
+            if cache_setting:
+                azion_resources.append(cache_setting)
+
+                idx, main_settings = azion_resources.query_azion_resource_by_type('azion_edge_application_main_setting')
+                if main_settings:
+                    main_settings["attributes"]["edge_application"]["caching"] = True
+                    resources = azion_resources.get_azion_resources()
+                    resources[idx] = main_settings
+        
         elif behavior.get("name") == "webApplicationFirewall":
             process_waf_behavior(azion_resources, behavior) # WAF Settings
-        elif behavior.get("name") == "allowPost":
+        elif behavior.get("name") == "allowPost": # Application Acceleration
             idx, main_settings = azion_resources.query_azion_resource_by_type('azion_edge_application_main_setting')
             if main_settings:
                 resources = azion_resources.get_azion_resources()
                 main_settings["attributes"]["edge_application"]["application_acceleration"] = True
                 resources[idx] = main_settings
-        elif behavior.get("name") == "origin":
+        elif behavior.get("name") == "origin": # Origin
             origin = create_origin(azion_resources, behavior, main_setting_name, origin_hostname, rule.get("name"))
             if origin:
                 azion_resources.append(origin)
 
-    # Cache Settings
-    cache_setting = create_cache_setting(azion_resources, cache_setting, main_setting_name, rule.get("name"))
-    if cache_setting:
-        azion_resources.append(cache_setting)
+    azion_resources.extend(create_rule_engine(azion_resources, rule, main_setting_name, index, rule.get("name")))
 
-        idx, main_settings = azion_resources.query_azion_resource_by_type('azion_edge_application_main_setting')
-        if main_settings is None:
-            logging.error("Missing azion_edge_application_main_setting in resource. Conversion aborted.")
-            return
-        main_settings["attributes"]["edge_application"]["caching"] = True
-        resources = azion_resources.get_azion_resources()
-        resources[idx] = main_settings
+    logging.info(f"[Akamai Rules] Processing behaviors for rules '{normalized_name}'. Finished.")
 
 
-    # Post Behaviors
-    #process_post_behavior(azion_resources, behavior, main_setting_name, origin_hostname)
-
-
-def process_children(azion_resources: AzionResource, children: List[Dict[str, Any]], main_setting_name: str, origin_hostname: str):
+def process_rule_children(azion_resources: AzionResource, children: List[Dict[str, Any]], main_setting_name: str, origin_hostname: str, parent_rule_index: int, parent_rule_name: str):
     """
     Processes the list of children rules and converts them into Azion resources.
     
@@ -167,15 +181,20 @@ def process_children(azion_resources: AzionResource, children: List[Dict[str, An
         azion_resources (AzionResource): The list of Azion resources to append converted resources.
         children (List[Dict[str, Any]]): The list of Akamai children rules.
         main_setting_name (str): The main setting name for Azion configuration.
+        origin_hostname (str): The origin hostname for Azion configuration.
+        parent_rule_index (int): The index of the parent rule.
+        parent_rule_name (str): The name of the parent rule.
     """
+
+    logging.info(f"[Akamai Rules] Processing {len(children)} children rules from rules '{parent_rule_name}'.")
+
     # Rules Processing
     for index, rule in enumerate(children):
         rule_name = rule.get("name", "Unnamed Rule")
-        #print(f'$$$-----> DEBUG: children rule {rule_name}')
+        logging.info(f"[Akamai Rules] Rule name: '{rule_name}', parent rule: {parent_rule_name} parent_index: {parent_rule_index} index: {index}")
         try:
             behaviors = rule.get("behaviors", [])
             for behavior in behaviors:
-                #print(f'$$$-----> DEBUG: children rule {rule_name} behavior {behavior.get("name")}')
                 if behavior.get("name") == "caching":
                     cache_setting = create_cache_setting(azion_resources, behaviors, main_setting_name, rule_name)
                     if cache_setting:
@@ -190,7 +209,6 @@ def process_children(azion_resources: AzionResource, children: List[Dict[str, An
                         resources[idx] = main_settings
 
                 if behavior.get("name") == "allowPost":
-                    #print(f'$$$-----> DEBUG: behavior {behavior}')
                     idx, main_settings = azion_resources.query_azion_resource_by_type('azion_edge_application_main_setting')
                     if main_settings:
                         resources = azion_resources.get_azion_resources()
@@ -216,18 +234,18 @@ def process_children(azion_resources: AzionResource, children: List[Dict[str, An
                         resources = azion_resources.get_azion_resources()
                         resources[idx] = origin
 
-                azion_resources.extend(create_rule_engine(azion_resources, rule, main_setting_name, index))
+            azion_resources.extend(create_rule_engine(azion_resources, rule, main_setting_name, parent_rule_index, parent_rule_name, rule_name))
 
-            
-
+            # Child Rules
             children = rule.get("children", [])
-            if children:
-                logging.info(f"Rule '{rule_name}' has {len(children)} child rules. Delegating to process_children.")
-                process_children(azion_resources, children, main_setting_name, origin_hostname)
-                continue
+            if len(children) > 0:
+                logging.info(f"[Akamai Rules] Rule '{rule_name}' has {len(children)} inner children rules. Processing...")
+                process_rule_children(azion_resources, children, main_setting_name, origin_hostname, index, rule_name)
 
         except ValueError as e:
-            logging.error(f"Error processing rule engine for rule {rule_name}: {e}")
+            logging.error(f"[Akamai Rules] Error processing rule engine for rule {rule_name}: {e}")
+
+    logging.info(f"[Akamai Rules] Processing children rules from rule '{parent_rule_name}'. Finished.")
 
 
 def create_main_resources(azion_resources: AzionResource, attributes: Dict[str, Any], main_setting_name: str, origin_hostname: str):

@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Dict, Any, Optional
 from utils import clean_and_parse_json, sanitize_name
 
@@ -122,42 +123,72 @@ def find_origin_hostname(akamai_config):
     logging.debug("WARNING: Origin hostname not found. Returning None.")
     return None
 
-def map_variable(value: str, context: str = "subject") -> str:
+def map_variable(value: str) -> str:
     """
     Dynamically maps Akamai variables to Azion-supported variables.
 
     Parameters:
         value (str): The Akamai variable to map.
-        context (str): The context in which the variable is used (e.g., "subject", "captured_array", etc.).
 
     Returns:
         str: The mapped Azion variable.
     """
-    # Context-aware mappings
+    # Check if the variable has the 'builtin.' prefix and remove it if present
+    if value.startswith("{{builtin."):
+        value = value.replace("{{builtin.", "").replace("}}", "")
+
+    # Context-aware mappings (direct mapping based on Akamai builtin variable)
     akamai_to_azion_map = {
-        "subject": {
-            "{{builtin.AK_PATH}}": "$${uri}",
-            "{{request.uri}}": "$${request_uri}",
-            "{{request.query_string}}": "$${args}",
-            "{{request.header}}": "$${http_header}",
-            "{{remote.addr}}": "$${remote_addr}",
-            "{{host}}": "$${host}",
-            # Add more mappings as needed...
-        },
-        "captured_array": {
-            "PMUSER_REDIR": "$${variable}",
-            "PMUSER_REDIR2": "$${variable}",
-            "{{builtin.AK_PATH}}": "$${uri}",
-            # Add more mappings as needed...
-        },
-        # Add more contexts and their mappings as necessary
+        "AK_PATH": "$${uri}",
+        "AK_CLIENT_IP": "$${remote_addr}",
+        "AK_ORIGINAL_URL": "$${request}",
+        "AK_SCHEME": "$${scheme}",
+        "AK_QUERY": "$${args}",
+        "AK_METHOD": "$${request_method}",
+        "AK_HOST": "$${host}",
+        "AK_TLS_VERSION": "$${tls_version}",
+        "AK_CLIENT_REAL_IP": "$${remote_addr}",
+        "AK_CLIENT_RTT": "$${rtt}",
+        "AK_CLIENT_USER_AGENT": "$${user_agent}",
+        "AK_CLIENT_ACCEPT_LANGUAGE": "$${http_accept_language}",
+        "AK_CLIENT_ACCEPT_ENCODING": "$${http_accept_encoding}",
+        "AK_CLIENT_ACCEPT_CHARSET": "$${http_accept_charset}",
+        "AK_CLIENT_COOKIE": "$${cookie_name}",
+        "AK_CLIENT_REFERER": "$${http_referer}",
+        "PMUSER_REDIR": "$${variable}",
+        "PMUSER_REDIR2": "$${variable}",
+        # Add more mappings as needed...
     }
 
-    # Get the appropriate mapping for the context
-    context_map = akamai_to_azion_map.get(context, {})
+    # Get the appropriate mapping for the variable or return the original value as a fallback
+    return akamai_to_azion_map.get(value, value)
 
-    # Map the variable or return the original value as a fallback
-    return context_map.get(value, value)
+def replace_variables(input_string: str) -> str:
+    """
+    Replaces Akamai variables in the input string with their Azion equivalents.
+
+    Parameters:
+        input_string (str): The input string potentially containing Akamai variables.
+
+    Returns:
+        str: The string with Akamai variables replaced by Azion equivalents.
+    """
+    # Regular expression pattern to match Akamai variables, e.g., {{builtin.AK_PATH}}
+    pattern = r"{{builtin\.[a-zA-Z0-9_\.]+}}"
+    
+    # Function to replace the matched variable with its mapped Azion value
+    def replace_match(match):
+        variable = match.group(0)
+        # Remove the '{{builtin.' and '}}' and map it
+        variable = variable.replace("{{builtin.", "").replace("}}", "")
+        return map_variable(variable)
+
+    # Replace all occurrences of Akamai variables in the string using the regex pattern
+    modified_string = re.sub(pattern, replace_match, input_string)
+
+    # Return the modified string, or the original if no replacements were made
+    return modified_string if modified_string != input_string else input_string
+
 
 def map_origin_type(akamai_origin_type: str) -> str:
     """
@@ -225,3 +256,30 @@ def map_origin_protocol_policy(options: Dict[str, Any]) -> str:
         return "http"
     else:  # Default to 'preserve' if neither is explicitly set
         return "preserve"
+
+def map_operator(akamai_operator: str) -> str:
+    """
+    Maps Akamai operators to Azion operators.
+    
+    Parameters:
+        akamai_operator (str): Akamai operator
+        
+    Returns:
+        str: Azion operator
+    """
+    operator_map = {
+        "EQUALS": "is_equal",
+        "EQUALS_ONE_OF": "is_equal",
+        "DOES_NOT_EQUAL": "is_not_equal",
+        "DOES_NOT_EQUAL_ONE_OF": "is_not_equal",
+        "MATCHES": "matches",
+        "MATCHES_ONE_OF": "matches",
+        "DOES_NOT_MATCH": "does_not_match",
+        "DOES_NOT_MATCH_ONE_OF": "does_not_match",
+        "STARTS_WITH": "starts_with",
+        "STARTS_WITH_ONE_OF": "starts_with",
+        "DOES_NOT_START_WITH": "does_not_start_with",
+        "EXISTS": "exists",
+        "DOES_NOT_EXIST": "does_not_exist"
+    }
+    return operator_map.get(akamai_operator, "matches")  # default to matches if unknown
