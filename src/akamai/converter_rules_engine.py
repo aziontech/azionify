@@ -99,13 +99,13 @@ def process_children(azion_resources: AzionResource,children: List[Dict[str, Any
 
     for index, child in enumerate(children):
         try:
-            logging.info(f"[process_children] Processing parent rule: {rule_name}, child rule: {child.get('name', 'unnamed')}")
+            logging.info(f"[process_children] Processing parent rule: '{rule_name}', child rule: '{child.get('name', 'unnamed')}'")
             normalized_name = sanitize_name(child.get("name", "unnamed"))
             # Calculate child priority based on parent index and child position
             child_index = (parent_index * child_priority_multiplier) + index
             resources.extend(create_rule_engine(azion_resources, child, main_setting_name, child_index, f'{rule_name}_{normalized_name}'))
         except ValueError as e:
-            logging.error(f"Error processing child rule {child.get('name', 'unnamed')}: {str(e)}")
+            logging.error(f"[process_children] Error processing child rule '{child.get('name', 'unnamed')}': {str(e)}")
     return resources
 
 
@@ -436,7 +436,7 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
                 "target": {
                     "captured_array": f'{replace_variables(options.get("variableValue"))}',
                     "subject": '$${variable}',
-                    "regex": f'{replace_variables(options.get("regex"))}'
+                    "regex": f'"(.*)\\\\/{replace_variables(options.get("regex")).replace('/', r'\\/').replace('.', r'\\.')}"'
                 },
             }
 
