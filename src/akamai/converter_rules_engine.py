@@ -27,13 +27,13 @@ def create_rule_engine(azion_resources: AzionResource, rule: Dict[str, Any], mai
     resources = []
     rule_name = name if name else rule.get("name", "Unnamed Rule")
 
-    logging.info(f"[Rules Engine] Processing rule: '{rule_name}' with index {index}")
+    logging.info(f"[rules_engine] Processing rule: '{rule_name}' with index {index}")
 
     # Extract behaviors and criteria
     behaviors = rule.get("behaviors", [])
     criteria = rule.get("criteria", [])
 
-    logging.info(f"[Rules Engine] Found {len(behaviors)} behaviors and {len(criteria)} criteria for rule: '{rule_name}'")
+    logging.info(f"[rules_engine] Found {len(behaviors)} behaviors and {len(criteria)} criteria for rule: '{rule_name}'")
 
     try:
         # Create resource if either behaviors or criteria exist
@@ -73,11 +73,11 @@ def create_rule_engine(azion_resources: AzionResource, rule: Dict[str, Any], mai
                     resource["attributes"]["results"]["criteria"] = azion_criteria
 
                 resources.append(resource)
-                logging.info(f"Rule engine resource created for rule: {rule_name}")
+                logging.info(f"[rules_engine] Rule engine resource created for rule: '{rule_name}'")
         else:
-            logging.warning(f"No behaviors or criteria found for rule: {rule_name}. Skipping.")
+            logging.warning(f"[rules_engine] No behaviors or criteria found for rule: '{rule_name}'. Skipping.")
     except ValueError as e:
-        logging.error(f"Error processing rule {rule_name}: {str(e)}")
+        logging.error(f"[rules_engine] Error processing rule '{rule_name}': {str(e)}")
 
     return resources
 
@@ -99,7 +99,7 @@ def process_children(azion_resources: AzionResource,children: List[Dict[str, Any
 
     for index, child in enumerate(children):
         try:
-            logging.info(f"######--->[process_children] Processing parent rule: {rule_name}, child rule: {child.get('name', 'unnamed')}")
+            logging.info(f"[process_children] Processing parent rule: {rule_name}, child rule: {child.get('name', 'unnamed')}")
             normalized_name = sanitize_name(child.get("name", "unnamed"))
             # Calculate child priority based on parent index and child position
             child_index = (parent_index * child_priority_multiplier) + index
@@ -283,11 +283,14 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
     cache_policy_options = {}  # Collect all cache policy related options
     depends_on = set()
 
+    logging.info(f"[rules_engine][process_behaviors] Rule = '{rule_name}', Parent rule = '{parent_rule_name}'")
+    logging.info(f'[rules_engine][process_behaviors] Processing {len(behaviors)} behaviors')
+
     for behavior in behaviors:
         ak_behavior_name = behavior.get("name")
         if not ak_behavior_name or ak_behavior_name not in MAPPING.get("behaviors", {}):
-            logging.warning(f"Unmapped behavior: {ak_behavior_name}")
-            logging.debug(f"Behavior options: {behavior.get('options', {})}")
+            logging.warning(f"[rules_engine][process_behaviors] Unmapped behavior: {ak_behavior_name}")
+            logging.debug(f"[rules_engine][process_behaviors] Behavior options: {behavior.get('options', {})}")
             continue
 
         mapping = MAPPING["behaviors"][ak_behavior_name]
@@ -298,16 +301,16 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
             try:
                 behavior_name = mapping["azion_behavior"](options)
             except ValueError as e:
-                logging.error(f"Error processing azion_behavior in behavior '{ak_behavior_name}': {e}")
+                logging.error(f"[rules_engine][process_behaviors] Error processing azion_behavior in behavior '{ak_behavior_name}': {e}")
         else:
             behavior_name = mapping["azion_behavior"]
 
-        logging.info(f"[process_behaviors] rule_name = '{rule_name}' mapped from '{ak_behavior_name}' to '{behavior_name}', parent_rule = {parent_rule_name}")
+        logging.info(f"[rules_engine][process_behaviors] Mapping from '{ak_behavior_name}' to '{behavior_name}'")
         # Handle cache policy
 
         # Skip behaviors that are explicitly disabled
         if "enabled" in options and options["enabled"] is False:
-            logging.debug(f"Behavior '{behavior_name}' is explicitly disabled. Skipping.")
+            logging.debug(f"[rules_engine][process_behaviors] Behavior '{behavior_name}' is explicitly disabled. Skipping.")
             continue
 
         # Handle special behavior: set_cache_policy
@@ -317,7 +320,11 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
                 continue
 
             # Handle cache settings dependencies
+            # Try by parent_rule_name
             _, cache_setttings = azion_resources.query_azion_resource_by_type('azion_edge_application_cache_setting', sanitize_name(parent_rule_name))
+            if not cache_setttings:
+                # Try by rule_name
+                _, cache_setttings = azion_resources.query_azion_resource_by_type('azion_edge_application_cache_setting', sanitize_name(rule_name))
             if cache_setttings:
                 cache_settings_name = cache_setttings.get("name")
                 cache_settings_ref = f'azion_edge_application_cache_setting.{cache_settings_name}'
@@ -331,6 +338,8 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
                 }
                 azion_behaviors.append(azion_behavior)
                 seen_behaviors.add("set_cache_policy")
+            else:
+                logging.debug(f"[rules_engine][process_behaviors] Cache settings not found for rule '{rule_name}'. Skipping.")
             continue
 
         # Handle special behavior: set_origin
@@ -355,7 +364,7 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
                 azion_behaviors.append(azion_behavior)
                 seen_behaviors.add("set_origin")
             else:
-                logging.debug(f"Origin settings not found for rule '{rule_name}'. Skipping.")
+                logging.debug(f"[rules_engine][process_behaviors] Origin settings not found for rule '{rule_name}'. Skipping.")
                 continue
 
             # Handle compression
@@ -434,7 +443,7 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
             # Create a unique key to track this behavior
             unique_key = (azion_behavior["name"], tuple(sorted(azion_behavior.get("target", {}).items())))
             if unique_key in seen_behaviors:
-                logging.debug(f"Duplicate behavior detected: {unique_key}. Skipping.")
+                logging.debug(f"[rules_engine][process_behaviors] Duplicate behavior detected: {unique_key}. Skipping.")
                 continue
 
             azion_behaviors.append(azion_behavior)
@@ -463,14 +472,14 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
                         if value is not None:
                             target[target_key] = value
                     except ValueError as e:
-                        logging.error(f"Error processing target for key '{target_key}' in behavior '{behavior_name}': {e}")
+                        logging.error(f"[rules_engine][process_behaviors] Error processing target for key '{target_key}' in behavior '{behavior_name}': {e}")
             elif isinstance(mapping["target"], str):
                 try:
                     value = options.get(mapping["target"])
                     if value is not None:
                         target = value
                 except ValueError as e:
-                    logging.error(f"Error accessing target for behavior '{behavior_name}': {e}")
+                    logging.error(f"[rules_engine][process_behaviors] Error accessing target for behavior '{behavior_name}': {e}")
 
             # Special handling for origin
             if behavior_name == "set_origin":
