@@ -122,7 +122,7 @@ MAPPING = {
             "azion_behavior": "add_request_header",
             "target": {
                 "name": "Transfer-Encoding",
-                "value": lambda options: "chunked" if options.get("enabled", True) else None
+                "target": lambda options: '"Transfer-Encoding: chunked"' if options.get("enabled", True) else None
             }
         },
         "removeVary": {
