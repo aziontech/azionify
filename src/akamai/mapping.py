@@ -1,3 +1,5 @@
+from .utils import replace_variables
+
 # Mapping for Akamai to Azion behavior/criteria conversions
 MAPPING = {
     "caching": {
@@ -183,10 +185,13 @@ MAPPING = {
         "rewriteUrl": {
             "azion_behavior": "rewrite_request",
             "target": {
-                "target": "targetUrl"
+                "target": lambda options: f"\"{replace_variables(options.get('targetUrl',''))}\""
             }
         },
-        "rewrite_request": {"azion_behavior": "rewrite_request", "target": "path"},
+        "rewrite_request": {
+            "azion_behavior": "rewrite_request", 
+            "target": "path"
+        },
         "baseDirectory": {
             "azion_behavior": "rewrite_request",
             "target": {
