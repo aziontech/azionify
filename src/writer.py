@@ -393,6 +393,7 @@ def write_cache_setting_block(f, resource: dict):
 
         # Write cache setting resource block
         write_indented(f, f'resource "azion_edge_application_cache_setting" "{name}" {{', 0)
+        write_indented(f, f'edge_application_id = azion_edge_application_main_setting.{name}.edge_application.application_id', 1)
         write_indented(f, "cache_settings = {", 1)
         write_indented(f, f'browser_cache_settings = "{validated_settings["browser_cache_settings"]}"', 2)
         write_indented(
@@ -407,7 +408,7 @@ def write_cache_setting_block(f, resource: dict):
         write_indented(f, f'cache_by_cookies = "{validated_settings["cache_by_cookies"]}"', 2)
         write_indented(f, f'enable_stale_cache = {validated_settings["enable_stale_cache"]}', 2)
         write_indented(f, "}", 1)
-        write_indented(f, f'edge_application_id = azion_edge_application_main_setting.{name}.edge_application.application_id', 1)
+        write_depends_on(f, resource.get("attributes", {}))
         write_indented(f, "}", 0)
         write_indented(f, "", 0)
 

@@ -105,8 +105,9 @@ def create_cache_setting(azion_resources: AzionResource, rules: List[Dict[str, A
         "type": "azion_edge_application_cache_setting",
         "name": name,
         "attributes": {
-            "cache_settings": cache_attributes,
             "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
+            "cache_settings": cache_attributes,
+            "depends_on": [f"azion_edge_application_main_setting.{main_setting_name}"],
         },
     }
 
