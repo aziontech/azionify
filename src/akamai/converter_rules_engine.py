@@ -302,7 +302,7 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
         else:
             behavior_name = mapping["azion_behavior"]
 
-        logging.info(f"[process_behaviors] rule_name = {rule_name} mapped '{ak_behavior_name}' to '{behavior_name}', parent_rule = {parent_rule_name}")
+        logging.info(f"[process_behaviors] rule_name = '{rule_name}' mapped from '{ak_behavior_name}' to '{behavior_name}', parent_rule = {parent_rule_name}")
         # Handle cache policy
 
         # Skip behaviors that are explicitly disabled

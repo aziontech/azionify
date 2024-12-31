@@ -186,7 +186,7 @@ def process_rule_children(azion_resources: AzionResource, children: List[Dict[st
         parent_rule_name (str): The name of the parent rule.
     """
 
-    logging.info(f"[Akamai Rules] Processing {len(children)} children rules from rules '{parent_rule_name}'.")
+    logging.info(f"[Akamai Rules] Processing {len(children)} children rules from rule '{parent_rule_name}'.")
 
     # Rules Processing
     for index, rule in enumerate(children):

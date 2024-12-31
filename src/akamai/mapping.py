@@ -130,7 +130,7 @@ MAPPING = {
 
         # Redirects
         "redirect": {
-            "azion_behavior": lambda options: "redirect_http_to_https" if options.get("responseCode") not in [301, 302] else f"redirect_to_{options.get('responseCode')}",
+            "azion_behavior": lambda options: "redirect_http_to_https" if options.get("destinationHostname") == "SAME_AS_REQUEST" else ("redirect_http_to_https" if options.get("responseCode") not in [301, 302] else f"redirect_to_{options.get('responseCode')}"),
              "target": {
                 "target": lambda options: f"$${{scheme}}://{options.get('destinationHostnameOther', '$${{host}}')}/$${{request_uri}}"
              }
