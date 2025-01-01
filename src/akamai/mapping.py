@@ -218,11 +218,6 @@ MAPPING = {
                 "value": lambda options: options.get("value", {}).get("id", "unknown")
             },
         },
-        
-        # Not directly mappable to a behavior
-        "http2": {"azion_behavior": None},
-        "h2c": {"azion_behavior": None},
-        "enhancedAkamaiProtocol": {"azion_behavior": None}
     },
     "advanced_behaviors": {
         "sureroute": {"azion_behavior": "performance_optimization"},

@@ -12,20 +12,23 @@ default_criteria = {
     "input_value": "/"
 }
 
-def create_rule_engine(azion_resources: AzionResource, rule: Dict[str, Any], main_setting_name: str, index: int, parent_rule_name: str = None, name: str = None) -> List[Dict[str, Any]]:
+def create_rule_engine(azion_resources: AzionResource, rule: Dict[str, Any], context: Dict[str, Any], name: str = None) -> List[Dict[str, Any]]:
     """
     Create a rule engine resource from Akamai rule data.
 
     Parameters:
+        azion_resources (AzionResource): Azion resource container
         rule (dict): Akamai rule data
-        main_setting_name (str): Edge application ID
-        index (int): Rule index for priority calculation
+        context (dict): Context variables
+        name (str): Rule name
 
     Returns:
         dict: Azion rule engine resource
     """
     resources = []
     rule_name = name if name else rule.get("name", "Unnamed Rule")
+    index = context.get("rule_index", 0)
+    main_setting_name = context.get("main_setting_name", "unnamed")
 
     logging.info(f"[rules_engine] Processing rule: '{rule_name}' with index {index}")
 
@@ -40,12 +43,9 @@ def create_rule_engine(azion_resources: AzionResource, rule: Dict[str, Any], mai
         if behaviors or criteria:
             # Process conditions
             processed_rule = process_conditional_rule(rule)
-            
-            # Calculate priority based on position and settings
-            priority = process_rule_priority(processed_rule, index)
 
             # Process behaviors and criteria
-            azion_behaviors, depends_on_behaviors = process_behaviors(azion_resources, behaviors, rule_name, parent_rule_name)
+            azion_behaviors, depends_on_behaviors = process_behaviors(azion_resources, behaviors, context, rule_name)
             azion_criteria = process_criteria(criteria)
 
             # Handling depends_on
@@ -80,53 +80,6 @@ def create_rule_engine(azion_resources: AzionResource, rule: Dict[str, Any], mai
         logging.error(f"[rules_engine] Error processing rule '{rule_name}': {str(e)}")
 
     return resources
-
-
-def process_children(azion_resources: AzionResource,children: List[Dict[str, Any]], main_setting_name: str, parent_index: int, rule_name: str) -> List[Dict[str, Any]]:
-    """
-    Process child rules and create corresponding Azion resources.
-    
-    Parameters:
-        children (list): List of child rules to process
-        main_setting_name (str): Name of the main setting resource
-        parent_index (int): Index of the parent rule for priority calculation
-        
-    Returns:
-        list: List of processed Azion resources
-    """
-    resources = []
-    child_priority_multiplier = 100
-
-    for index, child in enumerate(children):
-        try:
-            logging.info(f"[process_children] Processing parent rule: '{rule_name}', child rule: '{child.get('name', 'unnamed')}'")
-            normalized_name = sanitize_name(child.get("name", "unnamed"))
-            # Calculate child priority based on parent index and child position
-            child_index = (parent_index * child_priority_multiplier) + index
-            resources.extend(create_rule_engine(azion_resources, child, main_setting_name, child_index, f'{rule_name}_{normalized_name}'))
-        except ValueError as e:
-            logging.error(f"[process_children] Error processing child rule '{child.get('name', 'unnamed')}': {str(e)}")
-    return resources
-
-
-def process_rule_priority(rule: Dict[str, Any], index: int) -> int:
-    """
-    Calculate rule priority based on position and custom settings.
-    
-    Parameters:
-        rule (dict): The rule to process.
-        index (int): Position of the rule in the sequence.
-    
-    Returns:
-        int: Calculated priority value.
-    """
-    base_priority = index * 10
-    custom_priority = rule.get("options", {}).get("priority", 0)
-    
-    if rule.get("criteriaMustSatisfy") == "all":
-        custom_priority += 5 # Increase priority for rules with all criteria
-        
-    return base_priority + custom_priority
 
 
 def process_conditional_rule(rule: Dict[str, Any]) -> Dict[str, Any]:
@@ -265,7 +218,7 @@ def process_criteria(criteria: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
     return azion_criteria
 
-def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, Any]], rule_name: str, parent_rule_name: str = None) -> Tuple[List[Dict[str, Any]], Set[str]]:
+def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, Any]], context: Dict[str, Any], rule_name: str, parent_rule_name: str = None) -> Tuple[List[Dict[str, Any]], Set[str]]:
     """
     Process and map Akamai behaviors to Azion-compatible behaviors.
 
@@ -282,6 +235,7 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
     seen_behaviors = set()  # Track unique behaviors
     cache_policy_options = {}  # Collect all cache policy related options
     depends_on = set()
+    parent_rule_name = context.get("parent_rule_name", rule_name)
 
     logging.info(f"[rules_engine][process_behaviors] Rule = '{rule_name}', Parent rule = '{parent_rule_name}'")
     logging.info(f'[rules_engine][process_behaviors] Processing {len(behaviors)} behaviors')
@@ -320,11 +274,14 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
                 continue
 
             # Handle cache settings dependencies
-            # Try by parent_rule_name
-            _, cache_setttings = azion_resources.query_azion_resource_by_type('azion_edge_application_cache_setting', sanitize_name(parent_rule_name))
-            if not cache_setttings:
-                # Try by rule_name
-                _, cache_setttings = azion_resources.query_azion_resource_by_type('azion_edge_application_cache_setting', sanitize_name(rule_name))
+            cache_setttings = context.get("cache_setting", None)
+            if cache_setttings is None:
+                _, cache_setttings = azion_resources.query_azion_resource_by_type(
+                    'azion_edge_application_cache_setting', sanitize_name(parent_rule_name))
+                if cache_setttings is None:
+                    _, cache_setttings = azion_resources.query_azion_resource_by_type(
+                        'azion_edge_application_cache_setting', sanitize_name(rule_name))
+
             if cache_setttings:
                 cache_settings_name = cache_setttings.get("name")
                 cache_settings_ref = f'azion_edge_application_cache_setting.{cache_settings_name}'
@@ -349,7 +306,18 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
                 continue
 
             # Handle origin settings dependencies
-            origin_settings = azion_resources.query_azion_origin_by_address(options.get("hostname", ""))
+            origin_settings = context.get("origin", None)
+            if origin_settings is None:
+                _, origin_settings = azion_resources.query_azion_resource_by_type(
+                "azion_edge_application_origin",
+                sanitize_name(context.get("parent_rule_name", "unamed")))
+                if origin_settings is None:
+                    _, origin_settings = azion_resources.query_azion_resource_by_type(
+                        "azion_edge_application_origin",
+                        sanitize_name(rule_name))
+                    if origin_settings is None:
+                        origin_settings = azion_resources.query_azion_origin_by_address(options.get("hostname", ""))
+
             if origin_settings:
                 origin_settings_name = origin_settings.get("name")
                 origin_settings_ref = f'azion_edge_application_origin.{origin_settings_name}'
@@ -437,7 +405,7 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
                     "captured_array": f'{replace_variables(options.get("variableValue"))}',
                     "subject": '$${variable}',
                     "regex": f'"(.*)\\\\/{replace_variables(options.get("regex")).replace('/', r'\\/').replace('.', r'\\.')}"'
-                },
+                }
             }
 
             # Create a unique key to track this behavior

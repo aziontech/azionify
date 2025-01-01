@@ -390,10 +390,11 @@ def write_cache_setting_block(f, resource: dict):
     try:
         # Validate and normalize cache settings
         validated_settings = validate_cache_settings(resource.get("attributes", {}).get("cache_settings", {}))
+        main_setting_id = resource.get("attributes", {}).get("edge_application_id")
 
         # Write cache setting resource block
         write_indented(f, f'resource "azion_edge_application_cache_setting" "{name}" {{', 0)
-        write_indented(f, f'edge_application_id = azion_edge_application_main_setting.{name}.edge_application.application_id', 1)
+        write_indented(f, f'edge_application_id = {main_setting_id}', 1)
         write_indented(f, "cache_settings = {", 1)
         write_indented(f, f'browser_cache_settings = "{validated_settings["browser_cache_settings"]}"', 2)
         write_indented(
