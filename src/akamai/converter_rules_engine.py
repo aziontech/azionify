@@ -397,6 +397,7 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
                 logging.warning(f"Behavior '{mapping['azion_behavior']}' is missing required fields: {missing_fields}")
                 continue
 
+            regex_value = replace_variables(options.get('regex')).replace('/', r'\\/').replace('.', r'\\.')
             azion_behavior = {
                 "name": mapping["azion_behavior"],
                 "enabled": True,
@@ -404,7 +405,7 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
                 "target": {
                     "captured_array": f'{replace_variables(options.get("variableValue"))}',
                     "subject": '$${variable}',
-                    "regex": f"(.*)\\\\/{replace_variables(options.get('regex')).replace('/', r'\\/').replace('.', r'\\.')}"
+                    "regex": f"\"(.*)\\\\/{regex_value}\""
                 }
             }
 
