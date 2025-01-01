@@ -404,7 +404,7 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
                 "target": {
                     "captured_array": f'{replace_variables(options.get("variableValue"))}',
                     "subject": '$${variable}',
-                    "regex": f'"(.*)\\\\/{replace_variables(options.get("regex")).replace('/', r'\\/').replace('.', r'\\.')}"'
+                    "regex": f"(.*)\\\\/{replace_variables(options.get('regex')).replace('/', r'\\/').replace('.', r'\\.')}"
                 }
             }
 
