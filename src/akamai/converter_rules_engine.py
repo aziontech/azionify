@@ -1,4 +1,5 @@
 import logging
+import random
 from typing import Dict, List, Any, Set, Tuple
 from azion_resources import AzionResource
 from akamai.mapping import MAPPING
@@ -398,13 +399,15 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
                 continue
 
             regex_value = replace_variables(options.get('regex')).replace('/', r'\\/').replace('.', r'\\.')
+            random_number = random.randint(1000, 9999)
+            captured_array = options.get("variableName",f"var{random_number}")[:10]
             azion_behavior = {
                 "name": mapping["azion_behavior"],
                 "enabled": True,
                 "description": behavior.get("description", f"Behavior for {behavior_name}"),
                 "target": {
-                    "captured_array": f'{replace_variables(options.get("variableValue"))}',
-                    "subject": '$${variable}',
+                    "captured_array": f'"{captured_array}"',
+                    "subject": f'{replace_variables(options.get("variableValue"))}',
                     "regex": f"\"(.*)\\\\/{regex_value}\""
                 }
             }
