@@ -219,6 +219,132 @@ def process_criteria(criteria: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
     return azion_criteria
 
+def behavior_cache_setting(context: Dict[str, Any], azion_resources: AzionResource, options: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
+    """
+    Handles cache settings dependencies for a behavior.
+
+    Parameters:
+        context (dict): The context dictionary containing rule information.
+        azion_resources (AzionResource): The Azion resource container.
+        options (dict): The options dictionary containing cache settings information.
+
+    Returns:
+        tuple: A tuple containing the Azion behavior and cache settings reference.
+    """
+
+    azion_behavior = None
+    cache_settings_ref = None
+
+    parent_rule_name = context.get("parent_rule_name", None)
+    rule_name = context.get("rule_name", None)
+
+    # Handle cache settings dependencies
+    cache_setttings = context.get("cache_setting", None)
+    if cache_setttings is None:
+        _, cache_setttings = azion_resources.query_azion_resource_by_type(
+            'azion_edge_application_cache_setting', sanitize_name(parent_rule_name))
+        if cache_setttings is None:
+            _, cache_setttings = azion_resources.query_azion_resource_by_type(
+                'azion_edge_application_cache_setting', sanitize_name(rule_name))
+
+    if cache_setttings:
+        cache_settings_name = cache_setttings.get("name")
+        cache_settings_ref = f'azion_edge_application_cache_setting.{cache_settings_name}'
+
+        azion_behavior = {
+            "name": "set_cache_policy",
+            "enabled": True,
+            "target": {"target": cache_settings_ref + ".id"},
+            "description": f"Set cache policy to {options.get('name', '')}"
+        }
+    return azion_behavior, cache_settings_ref
+
+def behavior_set_origin(context: Dict[str, Any], azion_resources: AzionResource, options: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
+    """
+    Handles origin settings dependencies for a behavior.
+
+    Parameters:
+        context (dict): The context dictionary containing rule information.
+        azion_resources (AzionResource): The Azion resource container.
+        options (dict): The options dictionary containing origin settings information.
+
+    Returns:
+        tuple: A tuple containing the Azion behavior and origin settings reference.
+    """
+
+    azion_behavior = None
+    origin_settings_ref = None
+
+    rule_name = context.get("rule_name", None)
+    parent_rule_name = context.get("parent_rule_name", "unamed")
+
+    # Handle origin settings dependencies
+    origin_settings = context.get("origin", None)
+    if origin_settings is None:
+        _, origin_settings = azion_resources.query_azion_resource_by_type(
+        "azion_edge_application_origin",
+        sanitize_name(parent_rule_name))
+        if origin_settings is None:
+            _, origin_settings = azion_resources.query_azion_resource_by_type(
+                "azion_edge_application_origin",
+                sanitize_name(rule_name))
+            if origin_settings is None:
+                origin_settings = azion_resources.query_azion_origin_by_address(options.get("hostname", ""))
+
+    if origin_settings:
+        origin_settings_name = origin_settings.get("name")
+        origin_settings_ref = f'azion_edge_application_origin.{origin_settings_name}'
+
+        azion_behavior = {
+            "name": "set_origin",
+            "enabled": True,
+            "target": {"target": origin_settings_ref + ".id"},
+            "description": f"Set origin to {options.get('name', '')}"
+        }
+
+    return azion_behavior, origin_settings_ref
+
+def behavior_capture_match_groups(context: Dict[str, Any], azion_resources: AzionResource, options: Dict[str, Any], mapping: Dict[str, Any], behavior: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
+    """
+    Handles capture match groups dependencies for a behavior.
+
+    Parameters:
+        context (dict): The context dictionary containing rule information.
+        azion_resources (AzionResource): The Azion resource container.
+        options (dict): The options dictionary containing capture match groups information.
+
+    Returns:
+        tuple: A tuple containing the Azion behavior and capture match groups reference.
+    """
+
+    azion_behavior = None
+
+    required_fields = {
+        "captured_array": options.get("variableName"),
+        "regex": options.get("regex")
+    }
+    missing_fields = {k: v for k, v in required_fields.items() if not v}
+    if missing_fields:
+        logging.warning(f"Behavior '{mapping['azion_behavior']}' is missing required fields: {missing_fields}")
+        return azion_behavior, None
+
+    regex_value = replace_variables(options.get('regex')).replace('/', r'\\/').replace('.', r'\\.')
+    random_number = random.randint(1000, 9999)
+    captured_array = options.get("variableName",f"var{random_number}")[:10]
+    azion_behavior = {
+        "name": mapping["azion_behavior"],
+        "enabled": True,
+        "description": behavior.get("description", f"Behavior for capture_match_groups"),
+        "target": {
+            "captured_array": f'"{captured_array}"',
+            "subject": f'{replace_variables(options.get("variableValue"))}',
+            "regex": f"\"(.*)\\\\/{regex_value}\""
+        }
+    }
+
+    return azion_behavior, None
+
+
 def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, Any]], context: Dict[str, Any], rule_name: str, parent_rule_name: str = None) -> Tuple[List[Dict[str, Any]], Set[str]]:
     """
     Process and map Akamai behaviors to Azion-compatible behaviors.
@@ -273,26 +399,9 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
             if "set_cache_policy" in seen_behaviors:
                 continue
 
-            # Handle cache settings dependencies
-            cache_setttings = context.get("cache_setting", None)
-            if cache_setttings is None:
-                _, cache_setttings = azion_resources.query_azion_resource_by_type(
-                    'azion_edge_application_cache_setting', sanitize_name(parent_rule_name))
-                if cache_setttings is None:
-                    _, cache_setttings = azion_resources.query_azion_resource_by_type(
-                        'azion_edge_application_cache_setting', sanitize_name(rule_name))
-
-            if cache_setttings:
-                cache_settings_name = cache_setttings.get("name")
-                cache_settings_ref = f'azion_edge_application_cache_setting.{cache_settings_name}'
+            azion_behavior, cache_settings_ref = behavior_cache_setting(context, azion_resources, options)
+            if azion_behavior:
                 depends_on.add(cache_settings_ref)
-
-                azion_behavior = {
-                    "name": "set_cache_policy",
-                    "enabled": True,
-                    "target": {"target": cache_settings_ref + ".id"},
-                    "description": f"Set cache policy to {options.get('name', '')}"
-                }
                 azion_behaviors.append(azion_behavior)
                 seen_behaviors.add("set_cache_policy")
             else:
@@ -305,32 +414,11 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
             if "set_origin" in seen_behaviors:
                 continue
 
-            # Handle origin settings dependencies
-            origin_settings = context.get("origin", None)
-            if origin_settings is None:
-                _, origin_settings = azion_resources.query_azion_resource_by_type(
-                "azion_edge_application_origin",
-                sanitize_name(context.get("parent_rule_name", "unamed")))
-                if origin_settings is None:
-                    _, origin_settings = azion_resources.query_azion_resource_by_type(
-                        "azion_edge_application_origin",
-                        sanitize_name(rule_name))
-                    if origin_settings is None:
-                        origin_settings = azion_resources.query_azion_origin_by_address(options.get("hostname", ""))
-
-            if origin_settings:
-                origin_settings_name = origin_settings.get("name")
-                origin_settings_ref = f'azion_edge_application_origin.{origin_settings_name}'
-                depends_on.add(origin_settings_ref)
-
-                azion_behavior = {
-                    "name": "set_origin",
-                    "enabled": True,
-                    "target": {"target": origin_settings_ref + ".id"},
-                    "description": f"Set origin to {options.get('name', '')}"
-                }
+            azion_behavior, origin_settings_ref = behavior_set_origin(context, azion_resources, options)
+            if azion_behavior:
                 azion_behaviors.append(azion_behavior)
                 seen_behaviors.add("set_origin")
+                depends_on.add(origin_settings_ref)
             else:
                 logging.debug(f"[rules_engine][process_behaviors] Origin settings not found for rule '{rule_name}'. Skipping.")
                 continue
@@ -388,39 +476,17 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
 
         # Handle special behavior: capture_match_groups
         if mapping["azion_behavior"] == "capture_match_groups":
-            required_fields = {
-                "captured_array": options.get("variableName"),
-                "regex": options.get("regex")
-            }
-            missing_fields = {k: v for k, v in required_fields.items() if not v}
-            if missing_fields:
-                logging.warning(f"Behavior '{mapping['azion_behavior']}' is missing required fields: {missing_fields}")
-                continue
+            azion_behavior, _ = behavior_capture_match_groups(context, azion_resources, options, mapping, behavior)
+            if azion_behavior:
+                # Create a unique key to track this behavior
+                unique_key = (azion_behavior["name"], tuple(sorted(azion_behavior.get("target", {}).items())))
+                if unique_key in seen_behaviors:
+                    logging.debug(f"[rules_engine][process_behaviors] Duplicate behavior detected: {unique_key}. Skipping.")
+                    continue
 
-            regex_value = replace_variables(options.get('regex')).replace('/', r'\\/').replace('.', r'\\.')
-            random_number = random.randint(1000, 9999)
-            captured_array = options.get("variableName",f"var{random_number}")[:10]
-            azion_behavior = {
-                "name": mapping["azion_behavior"],
-                "enabled": True,
-                "description": behavior.get("description", f"Behavior for {behavior_name}"),
-                "target": {
-                    "captured_array": f'"{captured_array}"',
-                    "subject": f'{replace_variables(options.get("variableValue"))}',
-                    "regex": f"\"(.*)\\\\/{regex_value}\""
-                }
-            }
-
-            # Create a unique key to track this behavior
-            unique_key = (azion_behavior["name"], tuple(sorted(azion_behavior.get("target", {}).items())))
-            if unique_key in seen_behaviors:
-                logging.debug(f"[rules_engine][process_behaviors] Duplicate behavior detected: {unique_key}. Skipping.")
-                continue
-
-            azion_behaviors.append(azion_behavior)
-            seen_behaviors.add(unique_key)
+                azion_behaviors.append(azion_behavior)
+                seen_behaviors.add(unique_key)
             continue
-
 
         # Skip if we've already processed this behavior type
         if behavior_name in seen_behaviors:
