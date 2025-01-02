@@ -125,10 +125,7 @@ MAPPING = {
                 "target": lambda options: '"Transfer-Encoding: chunked"' if options.get("enabled", True) else None
             }
         },
-        "removeVary": {
-            "azion_behavior": "filter_request_header",
-            "target": {"name": "Remove Vary", "value": "Vary"}
-        },
+        "removeVary": {"azion_behavior": "filter_request_header","target": {"target": "Vary"}},
 
         # Redirects
         "redirect": {
@@ -162,9 +159,7 @@ MAPPING = {
         # Edge Functions
         "edgeWorker": {"azion_behavior": "run_function", "target": "function_id"},
         "run_function": {"azion_behavior": "run_function", "target": "function_id"},
-        "firewall": {
-            "webApplicationFirewall": {"azion_behavior": "run_function", "target": {"name": "WAF"}},
-        },
+        #"webApplicationFirewall": {"azion_behavior": "run_function", "target": {"name": "WAF"}},
 
         # Image Optimization
         "imageManager": {"azion_behavior": "optimize_images"},
@@ -200,7 +195,6 @@ MAPPING = {
         },
 
         # Special Cases
-        "allowPost": {"azion_behavior": "add_request_header", "target": {"name": "Allow", "value": "POST"}},
         "deliver": {"azion_behavior": "deliver"},
         "deny": {"azion_behavior": "deny"},
         "setVariable": {
@@ -211,17 +205,8 @@ MAPPING = {
                 "regex": "regex"
             }
         },
-        "cpCode": {
-            "azion_behavior": "add_request_header",
-            "target": {
-                "key": "cpCode",
-                "value": lambda options: options.get("value", {}).get("id", "unknown")
-            },
-        },
     },
     "advanced_behaviors": {
-        "sureroute": {"azion_behavior": "performance_optimization"},
-        "sureRoute": {"azion_behavior": "performance_optimization"},
         "prefetch": {"azion_behavior": "prefetch_assets"},
         "webSocket": {"azion_behavior": "websocket"}
     }

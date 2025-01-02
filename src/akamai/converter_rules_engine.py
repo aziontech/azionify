@@ -261,7 +261,6 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
             behavior_name = mapping["azion_behavior"]
 
         logging.info(f"[rules_engine][process_behaviors] Mapping from '{ak_behavior_name}' to '{behavior_name}'")
-        # Handle cache policy
 
         # Skip behaviors that are explicitly disabled
         if "enabled" in options and options["enabled"] is False:
@@ -351,22 +350,22 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
                 azion_behaviors.append(azion_behavior)
                 seen_behaviors.add("origin_enable_gzip")
 
-            # Handle true client ip (set_host_header)
+            # Handle true client ip (add_request_header)
             if options.get("enableTrueClientIp", False) == True:
                 trueClientIpHeader = options.get("trueClientIpHeader", "")
                 if trueClientIpHeader:
-                    # Unique key for set_host_header
-                    if "origin_set_host_header" in seen_behaviors:
+                    # Unique key for add_request_header
+                    if "origin_add_request_header" in seen_behaviors:
                         continue
 
                     azion_behavior = {
-                        "name": "set_host_header",
+                        "name": "add_request_header",
                         "enabled": True,
-                        "description": f"Set host header to {trueClientIpHeader}",
+                        "description": f"Add host header to {trueClientIpHeader}",
                         "target": { "target": '"' + f'{trueClientIpHeader}: ' + "$${remote_addr}" + '"' }
                     }
                     azion_behaviors.append(azion_behavior)
-                    seen_behaviors.add("origin_set_host_header")
+                    seen_behaviors.add("origin_add_request_header")
             continue
         
 
@@ -443,6 +442,8 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
                         value = option_key(options) if callable(option_key) else options.get(option_key)
                         if value is not None:
                             target[target_key] = value
+                        else:
+                            target[target_key] = f'"{option_key}"'
                     except ValueError as e:
                         logging.error(f"[rules_engine][process_behaviors] Error processing target for key '{target_key}' in behavior '{behavior_name}': {e}")
             elif isinstance(mapping["target"], str):
