@@ -38,7 +38,7 @@ MAPPING = {
         "deviceGroup": {"azion_condition": "$${device_group}", "azion_operator": "is_equal"},
         "geoip_country_code": {"azion_condition": "$${geoip_country_code}", "azion_operator": "is_equal"},
         "contentType": {
-            "azion_condition": "$${content_type}", 
+            "azion_condition": "$${http_content_type}", 
             "azion_operator": "matches",
             "input_value": lambda values: r"(%s)" % "|".join(values).replace('/', r'\\/').replace('.', r'\\.')
         },
@@ -58,23 +58,25 @@ MAPPING = {
         "cloudletsOrigin": {"azion_condition": "$${upstream_addr}", "azion_operator": "matches"},
         
         # Response Phase Variables
-        "responseHeader": {"azion_condition": "$${sent_http_header}", "azion_operator": "matches", "phase": "response"},
+        "responseHeader": {"azion_condition": "$${sent_http_header}", "azion_operator": "matches", "phase": "response", "name": "filter_response_header"},
         "statusCode": {"azion_condition": "$${status}", "azion_operator": "matches", "phase": "response"},
         "upstreamAddress": {"azion_condition": "$${upstream_addr}", "azion_operator": "matches", "phase": "response"},
         "upstreamCookie": {"azion_condition": "$${upstream_cookie_name}", "azion_operator": "matches", "phase": "response"},
         "upstreamHeader": {"azion_condition": "$${upstream_http_header}", "azion_operator": "matches", "phase": "response"},
         "upstreamStatus": {"azion_condition": "$${upstream_status}", "azion_operator": "matches", "phase": "response"},
         "removeVary": {
+            "name": "filter_request_header",
             "azion_condition": "$${request_uri}",
             "azion_operator": "starts_with",
             "input_value": "/",
             "conditional": "if",
-            "phase": "response"
+            "phase": "response",
+            "akamai_behavior": "removeVary",
         },
     },
     "behaviors": {
         # Compression
-        "gzipResponse": {"azion_behavior": "enable_gzip"},
+        "gzipResponse": {"azion_behavior": "enable_gzip", "phase": "response", "akamai_behavior": "gzipResponse"},
 
         # Cache Control
         "noCaching": {"azion_behavior": "bypass_cache_phase"},
@@ -106,9 +108,9 @@ MAPPING = {
         },
 
         # Cookies
-        "modifyOutgoingResponseCookie": {"azion_behavior": "set_cookie", "target": {"name": "cookie_name", "value": "cookie_value"}},
+        "modifyOutgoingResponseCookie": {"azion_behavior": "set_cookie", "target": {"name": "cookie_name", "value": "cookie_value"}, "phase": "response", "akamai_behavior": "modifyOutgoingResponseCookie"},
         "modifyIncomingRequestCookie": {"azion_behavior": "add_request_cookie", "target": {"name": "cookie_name", "value": "cookie_value"}},
-        "removeResponseCookie": {"azion_behavior": "filter_response_cookie", "target": "cookie_name"},
+        "removeResponseCookie": {"azion_behavior": "filter_response_cookie", "target": "cookie_name", "phase": "response", "akamai_behavior": "removeResponseCookie"},
         "removeRequestCookie": {"azion_behavior": "filter_request_cookie", "target": "cookie_name"},
         "forwardCookies": {"azion_behavior": "forward_cookies"},
         "cookies": {
@@ -116,8 +118,8 @@ MAPPING = {
         },
 
         # Headers (adding/removing/modifying)
-        "modifyOutgoingResponseHeader": {"azion_behavior": "add_response_header", "target": {"name": "header_name", "value": "header_value"}},
-        "removeOutgoingResponseHeader": {"azion_behavior": "filter_response_header", "target": "header_name"},
+        "modifyOutgoingResponseHeader": {"azion_behavior": "add_response_header", "target": {"name": "header_name", "value": "header_value"}, "phase": "response", "akamai_behavior": "modifyOutgoingResponseHeader"},
+        "removeOutgoingResponseHeader": {"azion_behavior": "filter_response_header", "target": "header_name", "phase": "response", "akamai_behavior": "removeOutgoingResponseHeader"},
         "allowTransferEncoding": {
             "azion_behavior": "add_request_header",
             "target": {
@@ -125,7 +127,7 @@ MAPPING = {
                 "target": lambda options: '"Transfer-Encoding: chunked"' if options.get("enabled", True) else None
             }
         },
-        "removeVary": {"azion_behavior": "filter_request_header","target": {"target": "Vary"}},
+        "removeVary": {"azion_behavior": "filter_request_header","target": {"target": "Vary"}, "phase": "response", "akamai_behavior": "removeVary"},
 
         # Redirects
         "redirect": {

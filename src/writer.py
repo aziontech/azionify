@@ -223,7 +223,7 @@ def write_rule_engine_block(f, resource):
 
         # Get resource name from results
         name = results.get("name", "unnamed_rule")
-        normalized_name = sanitize_name(name)
+        normalized_name = resource.get("name")
 
         # Write resource block header
         write_indented(f, f'resource "azion_edge_application_rule_engine" "{normalized_name}" {{', 0)
@@ -275,26 +275,26 @@ def write_rule_engine_block(f, resource):
             write_indented(f, "]", 2)
 
         # Write criteria if present
-        criteria = results.get("criteria", [])
+        criteria = results.get("criteria", {})
         if criteria:
             write_indented(f, "criteria = [", 2)
-            for criterion in criteria:
-                write_indented(f, "{", 3)
-                write_indented(f, "entries = [", 4)
-                for entry in criterion.get("entries", []):
-                    write_indented(f, "{", 5)
-                    write_indented(f, f'variable    = "{entry.get("variable", "")}"', 6)
-                    write_indented(f, f'operator    = "{entry.get("operator", "matches")}"', 6)
-                    write_indented(f, f'conditional = "{entry.get("conditional", "and")}"', 6)
+            #for criterion in criteria:
+            write_indented(f, "{", 3)
+            write_indented(f, "entries = [", 4)
+            for entry in criteria.get("entries", []):
+                write_indented(f, "{", 5)
+                write_indented(f, f'variable    = "{entry.get("variable", "")}"', 6)
+                write_indented(f, f'operator    = "{entry.get("operator", "matches")}"', 6)
+                write_indented(f, f'conditional = "{entry.get("conditional", "and")}"', 6)
 
-                    # Handle input_value safely
-                    input_value = entry.get("input_value", "*")
-                    if input_value:
-                        write_indented(f, f'input_value = "{input_value}"', 6)
+                # Handle input_value safely
+                input_value = entry.get("input_value", "*")
+                if input_value:
+                    write_indented(f, f'input_value = "{input_value}"', 6)
 
-                    write_indented(f, "},", 5)
-                write_indented(f, "]", 4)
-                write_indented(f, "},", 3)
+                write_indented(f, "},", 5)
+            write_indented(f, "]", 4)
+            write_indented(f, "},", 3)
             write_indented(f, "]", 2)
 
         # Write order if present
