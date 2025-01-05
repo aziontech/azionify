@@ -28,7 +28,6 @@ def create_rule_engine(azion_resources: AzionResource, rule: Dict[str, Any], con
         dict: Azion rule engine resource
     """
     resources = []
-    selected_criteria = None
     rule_name = name if name else rule.get("name", "Unnamed Rule")
     index = context.get("rule_index", 0)
     main_setting_name = context.get("main_setting_name", "unnamed")
@@ -81,6 +80,14 @@ def create_rule_engine(azion_resources: AzionResource, rule: Dict[str, Any], con
                                                 depends_on)
                     resources.append(resource)
                     logging.info(f"[rules_engine] Rule engine resource created for rule: '{rule_name}'")
+
+            # Enable image optimization if necessary
+            if "imageManager" in behaviors_names:
+                idx, main_settings = azion_resources.query_azion_resource_by_type('azion_edge_application_main_setting')
+                if main_settings:
+                    az_resources = azion_resources.get_azion_resources()
+                    main_settings["attributes"]["edge_application"]["image_optimization"] = True
+                    az_resources[idx] = main_settings
         else:
             logging.warning(f"[rules_engine] No behaviors or criteria found for rule: '{rule_name}'. Skipping.")
     except ValueError as e:
@@ -150,7 +157,6 @@ def assemple_response_rule(rule: Dict[str, Any], rule_name: str, main_setting_na
             selected_criteria = azion_criteria.get("response")
         else:
             for criteria in criterias:
-                print(f'@@@@@@@ criteria(RESPONSE)=> {criteria.get("name")}, {behavior.get("name")}')
                 if criteria.get("name", "") == behavior.get('name'):
                     selected_criteria = {"entries": [criteria]}
                     break
