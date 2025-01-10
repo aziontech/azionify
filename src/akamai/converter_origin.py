@@ -12,6 +12,7 @@ def create_origin(azion_resources: AzionResource, origin_attributes: Dict[str, A
         attributes (dict): Attributes from Akamai configuration.
         main_setting_name (str): Name of the main Azion edge application resource.
         edge_hostname (Optional[str]): The edge hostname extracted from Akamai configuration.
+        name (Optional[str]): Name of the origin resource.
 
     Returns:
         dict: Azion-compatible origin resource.
