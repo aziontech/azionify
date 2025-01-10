@@ -33,8 +33,10 @@ def write_depends_on(f, attributes):
     """
     depends_on = attributes.get("depends_on", [])
     if depends_on:
-        depends_on_list = ", ".join([f"{item}" for item in depends_on])
-        write_indented(f, f"depends_on = [{depends_on_list}]", 1)
+        write_indented(f, "depends_on = [", 1)
+        for item in depends_on:
+            write_indented(f, f"{item},", 2)
+        write_indented(f, "]", 1)
 
 
 def write_main_setting_block(f, resource):
