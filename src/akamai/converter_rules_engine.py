@@ -358,6 +358,9 @@ def process_criteria(criteria: List[Dict[str, Any]], behaviors_names: List[str])
     if response_entries:
         azion_criteria["response"] = {"entries": response_entries}
 
+    if not azion_criteria and not response_entries:
+        azion_criteria = process_criteria_default(behaviors_names)
+
     return azion_criteria
 
 def behavior_cache_setting(context: Dict[str, Any], azion_resources: AzionResource, options: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:

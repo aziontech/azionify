@@ -236,7 +236,7 @@ def write_rule_engine_block(f, resource):
         # Write basic attributes
         write_indented(f, f'name        = "{name}"', 2)
         write_indented(f, f'phase       = "{results.get("phase", "request")}"', 2)
-        write_indented(f, f'description = "{results.get("description", "")}"', 2)
+        write_indented(f, f'description = "{results.get("description", "").strip()}"', 2)
 
         # Write behaviors if present
         behaviors = results.get("behaviors", [])
