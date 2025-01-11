@@ -55,7 +55,7 @@ MAPPING = {
         "geoipContinentCode": {"azion_condition": "$${geoip_continent_code}", "azion_operator": "matches"},
         "geoipRegion": {"azion_condition": "$${geoip_region}", "azion_operator": "matches"},
         "geoipRegionName": {"azion_condition": "$${geoip_region_name}", "azion_operator": "matches"},
-        "cloudletsOrigin": {"azion_condition": "$${upstream_addr}", "azion_operator": "matches"},
+        #"cloudletsOrigin": {"azion_condition": "$${upstream_addr}", "azion_operator": "matches"},
         
         # Response Phase Variables
         "responseHeader": {"azion_condition": "$${sent_http_header}", "azion_operator": "matches", "phase": "response", "name": "filter_response_header"},
@@ -65,7 +65,7 @@ MAPPING = {
         "upstreamHeader": {"azion_condition": "$${upstream_http_header}", "azion_operator": "matches", "phase": "response"},
         "upstreamStatus": {"azion_condition": "$${upstream_status}", "azion_operator": "matches", "phase": "response"},
         "removeVary": {
-            "name": "filter_request_header",
+            "name": "filter_response_header",
             "azion_condition": "$${request_uri}",
             "azion_operator": "starts_with",
             "input_value": "/",
@@ -127,7 +127,7 @@ MAPPING = {
                 "target": lambda options: '"Transfer-Encoding: chunked"' if options.get("enabled", True) else None
             }
         },
-        "removeVary": {"azion_behavior": "filter_request_header","target": {"target": "Vary"}, "phase": "response", "akamai_behavior": "removeVary"},
+        "removeVary": {"azion_behavior": "filter_response_header","target": {"target": "Vary"}, "phase": "response", "akamai_behavior": "removeVary"},
 
         # Redirects
         "redirect": {
@@ -182,7 +182,7 @@ MAPPING = {
         "rewriteUrl": {
             "azion_behavior": "rewrite_request",
             "target": {
-                "target": lambda options: f"\"{replace_variables(options.get('targetUrl',''))}\""
+                "target": lambda options: f"\"{replace_variables(options.get('targetUrl','')).strip()}\""
             }
         },
         "rewrite_request": {
