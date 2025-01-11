@@ -134,7 +134,6 @@ def write_origin_block(f, resource):
         hmac_secret_key = origin.get("hmac_secret_key", "")
         connection_timeout = origin.get("connection_timeout", 60)
         timeout_between_bytes = origin.get("timeout_between_bytes", 5)
-        is_origin_redirection_enabled = origin.get("is_origin_redirection_enabled", False)
 
         # Write block
         write_indented(f, f'resource "azion_edge_application_origin" "{normalized_name}" {{', 0)
@@ -161,7 +160,6 @@ def write_origin_block(f, resource):
         write_indented(f, f'origin_path = "{origin_path}"', 2)
         write_indented(f, f'connection_timeout = {connection_timeout}', 2)
         write_indented(f, f'timeout_between_bytes = {timeout_between_bytes}', 2)
-        write_indented(f, f'is_origin_redirection_enabled = {str(is_origin_redirection_enabled).lower()}', 2)
         write_indented(f, f'hmac_authentication = {str(hmac_authentication).lower()}', 2)
         write_indented(f, f'hmac_region_name = "{hmac_region_name}"', 2)
         write_indented(f, f'hmac_access_key = "{hmac_access_key}"', 2)
@@ -398,6 +396,7 @@ def write_cache_setting_block(f, resource: dict):
         write_indented(f, f'resource "azion_edge_application_cache_setting" "{name}" {{', 0)
         write_indented(f, f'edge_application_id = {main_setting_id}', 1)
         write_indented(f, "cache_settings = {", 1)
+        write_indented(f, f'name = "{name}"', 2)
         write_indented(f, f'browser_cache_settings = "{validated_settings["browser_cache_settings"]}"', 2)
         write_indented(
             f, f'browser_cache_settings_maximum_ttl = {validated_settings["browser_cache_settings_maximum_ttl"]}', 2
