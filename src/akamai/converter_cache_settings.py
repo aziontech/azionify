@@ -104,9 +104,9 @@ def create_cache_setting(azion_resources: AzionResource, rules: List[Dict[str, A
 
     #depends_on
     depends_on = [f"azion_edge_application_main_setting.{main_setting_name}"]
-    origin = azion_resources.query_azion_resource_by_type("azion_edge_application_origin", name)
+    _, origin = azion_resources.query_azion_resource_by_type("azion_edge_application_origin", name)
     if not origin:
-        logging.warning(f"Origin resource not found for rule: {name}")
+        depends_on.append(f"azion_edge_application_origin.default") #fallback to default origin
     else:
         depends_on.append(f"azion_edge_application_origin.{name}")
 

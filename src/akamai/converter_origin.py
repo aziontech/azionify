@@ -31,7 +31,6 @@ def create_origin(azion_resources: AzionResource, origin_attributes: Dict[str, A
         origin_path = options.get("baseDirectory", "")
         connection_timeout = options.get("connection_timeout", 60)
         timeout_between_bytes = options.get("timeout_between_bytes", 120)
-        is_origin_redirection_enabled = options.get("is_origin_redirection_enabled", False)
         host_header = map_forward_host_header(options)
 
         if not hostname or hostname == "placeholder.example.com":
@@ -72,7 +71,6 @@ def create_origin(azion_resources: AzionResource, origin_attributes: Dict[str, A
                     "origin_path": origin_path,
                     "connection_timeout": connection_timeout,
                     "timeout_between_bytes": timeout_between_bytes,
-                    "is_origin_redirection_enabled": is_origin_redirection_enabled,
                     "hmac_authentication": hmac_authentication,
                     "hmac_region_name": hmac_region_name,
                     "hmac_access_key": hmac_access_key,
