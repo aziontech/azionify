@@ -15,13 +15,15 @@ def create_domain(azion_resources: AzionResource, attributes: Dict[str, Any], ma
         dict: Azion-compatible domain resource.
     """
     try:
-        logging.info("Creating Azion domain resource.")
+        logging.info("Processing domains.")
 
         # Extract and validate 'hostnames'
-        hostnames = attributes.get("hostnames", [])
-        if not isinstance(hostnames, list):
-            logging.warning(f"Invalid 'hostnames' format: {hostnames}. Defaulting to an empty list.")
-            hostnames = []
+        hostnames = attributes.get("hostnames", None)
+        if not hostnames:
+            logging.warning(f"Hostname session not found in the configuration.")
+            return None
+
+        logging.info("Creating Azion domain resource.")
 
         # Extract cname_from values
         cnames = [f'"{hostname["cname_from"]}"' for hostname in hostnames if "cname_from" in hostname]
