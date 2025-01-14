@@ -68,7 +68,6 @@ def create_main_setting(azion_resources: AzionResource, attributes: Dict[str, An
         "minimum_tls_version": "tls_1_2",
         "debug_rules": False,
         "caching": True,
-        "edge_firewall": True,
         "edge_functions": True,
         "image_optimization": False,
         "http3": False,
@@ -77,7 +76,6 @@ def create_main_setting(azion_resources: AzionResource, attributes: Dict[str, An
         "load_balancer": False,
         "raw_logs": True,
         "device_detection": False,
-        "web_application_firewall": False,
     }
 
     validated_attributes = validate_and_apply_defaults(attributes, defaults)

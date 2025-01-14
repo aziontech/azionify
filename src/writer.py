@@ -66,7 +66,6 @@ def write_main_setting_block(f, resource):
         # Default values for additional fields
         debug_rules = edge_application.get("debug_rules", False)
         caching = edge_application.get("caching", True)
-        edge_firewall = edge_application.get("edge_firewall", False)
         edge_functions = edge_application.get("edge_functions", False)
         image_optimization = edge_application.get("image_optimization", False)
         http3 = edge_application.get("http3", False)
@@ -75,7 +74,6 @@ def write_main_setting_block(f, resource):
         load_balancer = edge_application.get("load_balancer", False)
         raw_logs = edge_application.get("raw_logs", True)
         device_detection = edge_application.get("device_detection", False)
-        web_application_firewall = edge_application.get("web_application_firewall", False)
 
         # Write block
         write_indented(f, f'resource "azion_edge_application_main_setting" "{normalized_name}" {{', 0)
@@ -88,7 +86,6 @@ def write_main_setting_block(f, resource):
         write_indented(f, f'minimum_tls_version      = "{minimum_tls_version}"', 2)
         write_indented(f, f'debug_rules              = {str(debug_rules).lower()}', 2)
         write_indented(f, f'caching                  = {str(caching).lower()}', 2)
-        write_indented(f, f'edge_firewall            = {str(edge_firewall).lower()}', 2)
         write_indented(f, f'edge_functions           = {str(edge_functions).lower()}', 2)
         write_indented(f, f'image_optimization       = {str(image_optimization).lower()}', 2)
         write_indented(f, f'http3                    = {str(http3).lower()}', 2)
@@ -97,7 +94,6 @@ def write_main_setting_block(f, resource):
         write_indented(f, f'load_balancer            = {str(load_balancer).lower()}', 2)
         write_indented(f, f'raw_logs                 = {str(raw_logs).lower()}', 2)
         write_indented(f, f'device_detection         = {str(device_detection).lower()}', 2)
-        write_indented(f, f'web_application_firewall = {str(web_application_firewall).lower()}', 2)
         write_indented(f, "}", 1)
         write_indented(f, "}", 0)
         write_indented(f, "", 0)
