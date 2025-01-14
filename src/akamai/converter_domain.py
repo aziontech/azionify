@@ -20,7 +20,7 @@ def create_domain(azion_resources: AzionResource, attributes: Dict[str, Any], ma
         # Extract and validate 'hostnames'
         hostnames = attributes.get("hostnames", None)
         if not hostnames:
-            logging.warning(f"Hostname session not found in the configuration.")
+            logging.warning("Hostname session not found in the configuration.")
             return None
 
         logging.info("Creating Azion domain resource.")
