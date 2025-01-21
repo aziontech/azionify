@@ -1,4 +1,4 @@
-# EdgeSQL Shell Code of Conduct
+# Azionify Code of Conduct
 
 ## Our Pledge
 

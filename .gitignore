@@ -12,4 +12,3 @@ config/temp/
 # Terraform resources
 .terraform*
 terraform.tfstate*
-
