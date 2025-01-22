@@ -2,7 +2,7 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability within EdgeSQL Shell, please report it as soon as possible. We take all security vulnerabilities seriously and will work to resolve any identified issues promptly.
+If you discover a security vulnerability within Azionify, please report it as soon as possible. We take all security vulnerabilities seriously and will work to resolve any identified issues promptly.
 
 To report a security vulnerability, please email [support@azion.com](mailto:support@azion.com) with the details of the vulnerability. In your report, please include:
 
@@ -12,7 +12,7 @@ To report a security vulnerability, please email [support@azion.com](mailto:supp
 
 ## Supported Versions
 
-The following versions of EdgeSQL Shell are currently being supported with security updates:
+The following versions of Azionify are currently being supported with security updates:
 
 | Version | Supported          |
 | ------- | ------------------ |
@@ -21,13 +21,13 @@ The following versions of EdgeSQL Shell are currently being supported with secur
 
 ## Security Updates
 
-We will notify users of security updates through our GitHub repository and release notes. It is recommended to always use the latest version of EdgeSQL Shell to benefit from the latest security fixes.
+We will notify users of security updates through our GitHub repository and release notes. It is recommended to always use the latest version of Azionify to benefit from the latest security fixes.
 
 ## Security Best Practices
 
-To help ensure the security of your EdgeSQL Shell installation, please follow these best practices:
+To help ensure the security of your Azionify installation, please follow these best practices:
 
-- **Keep Software Up-to-Date**: Always use the latest version of EdgeSQL Shell.
+- **Keep Software Up-to-Date**: Always use the latest version of Azionify.
 - **Review Dependencies**: Regularly check for and update dependencies to ensure they are free of known vulnerabilities.
 - **Use Strong Passwords**: Ensure that all passwords used in your environment are strong and unique.
 - **Limit Access**: Restrict access to the minimum necessary users and services.
@@ -41,9 +41,9 @@ We believe in responsible disclosure of vulnerabilities. If you report a vulnera
 - Avoid exploiting the vulnerability beyond what is necessary to demonstrate it.
 - Respect our users' data and privacy during your investigation.
 
-We appreciate your efforts to keep EdgeSQL Shell secure and will acknowledge your contributions in our release notes.
+We appreciate your efforts to keep Azionify secure and will acknowledge your contributions in our release notes.
 
-Thank you for helping to improve the security of EdgeSQL Shell!
+Thank you for helping to improve the security of Azionify!
 
 ## Contact
 

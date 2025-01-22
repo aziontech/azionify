@@ -1,6 +1,6 @@
-# Contributing to EdgeSQL Shell
+# Contributing to Azionify
 
-Thank you for considering contributing to EdgeSQL Shell! We welcome contributions from everyone. Below are some guidelines to help you get started.
+Thank you for considering contributing to Azionify! We welcome contributions from everyone. Below are some guidelines to help you get started.
 
 ## Table of Contents
 
@@ -15,13 +15,13 @@ Thank you for considering contributing to EdgeSQL Shell! We welcome contribution
 
 ## Code of Conduct
 
-This project adheres to a [Code of Conduct](https://github.com/aziontech/edgesql-shell/blob/main/CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to [support@azion.com](mailto:support@azion.com).
+This project adheres to a [Code of Conduct](https://github.com/aziontech/azionify/blob/main/CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to [support@azion.com](mailto:support@azion.com).
 
 ## How to Contribute
 
 ### Issues
 
-If you encounter a bug or have a feature request, please create an issue on our [GitHub Issues page](https://github.com/aziontech/edgesql-shell/issues).
+If you encounter a bug or have a feature request, please create an issue on our [GitHub Issues page](https://github.com/aziontech/azionify/issues).
 
 ### Pull Requests
 
@@ -32,7 +32,7 @@ We welcome pull requests for bug fixes, improvements, and new features. Here’s
 3. Make your changes.
 4. Commit your changes with a clear message.
 5. Push your changes to your forked repository.
-6. Create a pull request from your fork to the `main` branch of the [main repository](https://github.com/aziontech/edgesql-shell).
+6. Create a pull request from your fork to the `main` branch of the [main repository](https://github.com/aziontech/azionify).
 
 ## Getting Started
 
@@ -41,7 +41,7 @@ To get started with the project, follow these steps:
 1. **Fork the repository**: Click the "Fork" button at the top right of the repository page.
 2. **Clone your fork**: 
     ```bash
-    git clone https://github.com/YOUR_GITHUB_USERNAME/edgesql-shell.git
+    git clone https://github.com/YOUR_GITHUB_USERNAME/azionify.git
     ```
 3. **Create a branch**: 
     ```bash
@@ -69,11 +69,11 @@ To get started with the project, follow these steps:
 
 ## Reporting Bugs
 
-If you find a bug, please create an issue on our [GitHub Issues page](https://github.com/aziontech/edgesql-shell/issues) and provide as much detail as possible, including steps to reproduce the issue, the expected outcome, and the actual outcome.
+If you find a bug, please create an issue on our [GitHub Issues page](https://github.com/aziontech/azionify/issues) and provide as much detail as possible, including steps to reproduce the issue, the expected outcome, and the actual outcome.
 
 ## Suggesting Enhancements
 
-We appreciate any suggestions for improving EdgeSQL Shell. To suggest an enhancement, please create an issue on our [GitHub Issues page](https://github.com/aziontech/edgesql-shell/issues) and describe your idea in detail.
+We appreciate any suggestions for improving Azionify. To suggest an enhancement, please create an issue on our [GitHub Issues page](https://github.com/aziontech/azionify/issues) and describe your idea in detail.
 
 ## Code Style
 
