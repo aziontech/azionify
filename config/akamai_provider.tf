@@ -1,12 +1,12 @@
 terraform {
- required_providers {
-  akamai = {
-   source = "akamai/akamai"
+  required_providers {
+    akamai = {
+      source = "akamai/akamai"
+    }
   }
- }
 }
 
 provider "akamai" {
-  edgerc = "~/.edgerc"
+  edgerc         = "~/.edgerc"
   config_section = "default"
 }

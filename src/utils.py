@@ -1,9 +1,15 @@
+import ast
 import json
 import logging
 import re
 from typing import List, Optional, Any, Dict
 
 logging.basicConfig(level=logging.INFO)
+
+# Compile regex patterns once for better performance
+_TRUE_PATTERN = re.compile(r'\bTrue\b')
+_FALSE_PATTERN = re.compile(r'\bFalse\b')
+_NONE_PATTERN = re.compile(r'\bNone\b')
 
 def format_depends_on(depends_on: List[str]) -> str:
     """
@@ -49,7 +55,6 @@ def log_conversion_summary(resources: List[dict]):
     
     if resource_types:
         logging.info(f"Generated resources: {', '.join(set(resource_types))}")
-
 
 def write_indented(f, content, indent_level=0, indent_size=4):
     """
@@ -164,39 +169,76 @@ def sanitize_name(name: str) -> str:
         
     return sanitized
 
-# Compile regex patterns once for better performance
-_TRUE_PATTERN = re.compile(r'\bTrue\b')
-_FALSE_PATTERN = re.compile(r'\bFalse\b')
-_NONE_PATTERN = re.compile(r'\bNone\b')
-
 def clean_and_parse_json(json_string: str) -> Optional[Any]:
     """
-    Clean and parse a JSON string.
+    Clean and parse a JSON or HCL string.
     
-    :param json_string: String containing the JSON.
-    :return: Parsed JSON object or None if parsing fails.
+    :param json_string: String containing the JSON or HCL.
+    :return: Parsed object or None if parsing fails.
     """
     if not json_string:
-        logging.error("Empty JSON string provided")
+        logging.debug("Empty string provided for parsing.")
         return None
 
     try:
-        if json_string.startswith("${jsonencode(") and json_string.endswith(")}"):
-            extracted_content = json_string[len("${jsonencode("):-2].strip()
-        else:
-            extracted_content = json_string
+        # First try to parse as JSON
+        try:
+            return json.loads(json_string)
+        except json.JSONDecodeError:
+            logging.debug("String was not initialy a parseable json.")
+            pass
         
-        rules_cleaned = extracted_content.replace("'", '"')
-        rules_cleaned = _TRUE_PATTERN.sub('true', rules_cleaned)
-        rules_cleaned = _FALSE_PATTERN.sub('false', rules_cleaned)
-        rules_cleaned = _NONE_PATTERN.sub('null', rules_cleaned)
-
-        return json.loads(rules_cleaned)
-    except json.JSONDecodeError as e:
-        logging.error(f"JSON decode error: {str(e)}")
+        # If string starts with ${jsonencode(...)}, extract the content
+        if json_string.startswith('${jsonencode(') and json_string.endswith(')}'):
+            # Extract content between jsonencode( and the last )
+            json_string = json_string[len('${jsonencode('):-2]
+            
+            # Replace single quotes with double quotes, but only if they're not within a string
+            in_string = False
+            escaped = False
+            result = []
+            for char in json_string:
+                if char == '\\' and not escaped:
+                    escaped = True
+                    result.append(char)
+                    continue
+                    
+                if char == '"' and not escaped:
+                    in_string = not in_string
+                    result.append(char)
+                elif char == "'" and not in_string and not escaped:
+                    result.append('"')
+                else:
+                    result.append(char)
+                    
+                escaped = False
+                
+            json_string = ''.join(result)
+            
+            try:
+                # Try to parse the cleaned string
+                return json.loads(json_string)
+            except json.JSONDecodeError:
+                pass
+                
+            try:
+                # If that fails, try to evaluate it as a Python literal
+                return ast.literal_eval(json_string)
+            except Exception:
+                pass
+        
+        # Try to parse as a plain object
+        try:
+            json_string = json_string.replace("'", '"')
+            return json.loads(json_string)
+        except Exception:
+            pass
+        
+        logging.error("Failed to parse content as either JSON or HCL")
         return None
-    except ValueError as e:
-        logging.error(f"Unexpected error while parsing JSON: {str(e)}")
+            
+    except Exception as e:
+        logging.error(f"Error parsing content: {str(e)}")
         return None
 
 def parse_ttl(ttl_str):
