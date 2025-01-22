@@ -110,15 +110,16 @@ def assemple_request_rule(rule: Dict[str, Any], rule_name: str, main_setting_nam
     Returns:
     Dict[str, Any]: Rule engine resource.
     '''
+    phase = "request" if rule_name != "default" else "default"
     resource = {
         "type": "azion_edge_application_rule_engine",
-        "name": sanitize_name(rule_name),
+        "name": sanitize_name(rule_name), 
         "attributes": {
             "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
             "results": {
-                "name": sanitize_name(rule_name),
+                "name": "Default Rule" if phase == "default" else sanitize_name(rule_name),
                 "description": rule.get("comments", ""),
-                "phase": "request" if rule_name != "default" else "default",
+                "phase": phase,
                 "behaviors": request_behaviors
             },
             "depends_on": depends_on
@@ -356,6 +357,9 @@ def process_criteria(criteria: List[Dict[str, Any]], behaviors_names: List[str])
         azion_criteria["request"] = {"entries": request_entries}
     if response_entries:
         azion_criteria["response"] = {"entries": response_entries}
+
+    if not azion_criteria and not response_entries:
+        azion_criteria = process_criteria_default(behaviors_names)
 
     return azion_criteria
 

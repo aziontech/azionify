@@ -33,8 +33,10 @@ def write_depends_on(f, attributes):
     """
     depends_on = attributes.get("depends_on", [])
     if depends_on:
-        depends_on_list = ", ".join([f"{item}" for item in depends_on])
-        write_indented(f, f"depends_on = [{depends_on_list}]", 1)
+        write_indented(f, "depends_on = [", 1)
+        for item in depends_on:
+            write_indented(f, f"{item},", 2)
+        write_indented(f, "]", 1)
 
 
 def write_main_setting_block(f, resource):
@@ -64,7 +66,6 @@ def write_main_setting_block(f, resource):
         # Default values for additional fields
         debug_rules = edge_application.get("debug_rules", False)
         caching = edge_application.get("caching", True)
-        edge_firewall = edge_application.get("edge_firewall", False)
         edge_functions = edge_application.get("edge_functions", False)
         image_optimization = edge_application.get("image_optimization", False)
         http3 = edge_application.get("http3", False)
@@ -73,7 +74,6 @@ def write_main_setting_block(f, resource):
         load_balancer = edge_application.get("load_balancer", False)
         raw_logs = edge_application.get("raw_logs", True)
         device_detection = edge_application.get("device_detection", False)
-        web_application_firewall = edge_application.get("web_application_firewall", False)
 
         # Write block
         write_indented(f, f'resource "azion_edge_application_main_setting" "{normalized_name}" {{', 0)
@@ -86,7 +86,6 @@ def write_main_setting_block(f, resource):
         write_indented(f, f'minimum_tls_version      = "{minimum_tls_version}"', 2)
         write_indented(f, f'debug_rules              = {str(debug_rules).lower()}', 2)
         write_indented(f, f'caching                  = {str(caching).lower()}', 2)
-        write_indented(f, f'edge_firewall            = {str(edge_firewall).lower()}', 2)
         write_indented(f, f'edge_functions           = {str(edge_functions).lower()}', 2)
         write_indented(f, f'image_optimization       = {str(image_optimization).lower()}', 2)
         write_indented(f, f'http3                    = {str(http3).lower()}', 2)
@@ -95,7 +94,6 @@ def write_main_setting_block(f, resource):
         write_indented(f, f'load_balancer            = {str(load_balancer).lower()}', 2)
         write_indented(f, f'raw_logs                 = {str(raw_logs).lower()}', 2)
         write_indented(f, f'device_detection         = {str(device_detection).lower()}', 2)
-        write_indented(f, f'web_application_firewall = {str(web_application_firewall).lower()}', 2)
         write_indented(f, "}", 1)
         write_indented(f, "}", 0)
         write_indented(f, "", 0)
@@ -132,7 +130,6 @@ def write_origin_block(f, resource):
         hmac_secret_key = origin.get("hmac_secret_key", "")
         connection_timeout = origin.get("connection_timeout", 60)
         timeout_between_bytes = origin.get("timeout_between_bytes", 5)
-        is_origin_redirection_enabled = origin.get("is_origin_redirection_enabled", False)
 
         # Write block
         write_indented(f, f'resource "azion_edge_application_origin" "{normalized_name}" {{', 0)
@@ -159,7 +156,6 @@ def write_origin_block(f, resource):
         write_indented(f, f'origin_path = "{origin_path}"', 2)
         write_indented(f, f'connection_timeout = {connection_timeout}', 2)
         write_indented(f, f'timeout_between_bytes = {timeout_between_bytes}', 2)
-        write_indented(f, f'is_origin_redirection_enabled = {str(is_origin_redirection_enabled).lower()}', 2)
         write_indented(f, f'hmac_authentication = {str(hmac_authentication).lower()}', 2)
         write_indented(f, f'hmac_region_name = "{hmac_region_name}"', 2)
         write_indented(f, f'hmac_access_key = "{hmac_access_key}"', 2)
@@ -236,7 +232,7 @@ def write_rule_engine_block(f, resource):
         # Write basic attributes
         write_indented(f, f'name        = "{name}"', 2)
         write_indented(f, f'phase       = "{results.get("phase", "request")}"', 2)
-        write_indented(f, f'description = "{results.get("description", "")}"', 2)
+        write_indented(f, f'description = "{results.get("description", "").strip()}"', 2)
 
         # Write behaviors if present
         behaviors = results.get("behaviors", [])
@@ -396,6 +392,7 @@ def write_cache_setting_block(f, resource: dict):
         write_indented(f, f'resource "azion_edge_application_cache_setting" "{name}" {{', 0)
         write_indented(f, f'edge_application_id = {main_setting_id}', 1)
         write_indented(f, "cache_settings = {", 1)
+        write_indented(f, f'name = "{name}"', 2)
         write_indented(f, f'browser_cache_settings = "{validated_settings["browser_cache_settings"]}"', 2)
         write_indented(
             f, f'browser_cache_settings_maximum_ttl = {validated_settings["browser_cache_settings_maximum_ttl"]}', 2
