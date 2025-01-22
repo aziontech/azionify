@@ -8,7 +8,6 @@ bin
 lib/
 __pycache__/
 src/azionify.egg-info/
-config/temp/
 # Terraform resources
 .terraform*
 terraform.tfstate*
