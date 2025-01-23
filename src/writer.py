@@ -72,7 +72,6 @@ def write_main_setting_block(f, resource):
         application_acceleration = edge_application.get("application_acceleration", False)
         l2_caching = edge_application.get("l2_caching", False)
         load_balancer = edge_application.get("load_balancer", False)
-        raw_logs = edge_application.get("raw_logs", True)
         device_detection = edge_application.get("device_detection", False)
 
         # Write block
@@ -92,7 +91,6 @@ def write_main_setting_block(f, resource):
         write_indented(f, f'application_acceleration = {str(application_acceleration).lower()}', 2)
         write_indented(f, f'l2_caching               = {str(l2_caching).lower()}', 2)
         write_indented(f, f'load_balancer            = {str(load_balancer).lower()}', 2)
-        write_indented(f, f'raw_logs                 = {str(raw_logs).lower()}', 2)
         write_indented(f, f'device_detection         = {str(device_detection).lower()}', 2)
         write_indented(f, "}", 1)
         write_indented(f, "}", 0)

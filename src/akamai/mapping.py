@@ -118,7 +118,14 @@ MAPPING = {
         },
 
         # Headers (adding/removing/modifying)
-        "modifyOutgoingResponseHeader": {"azion_behavior": "add_response_header", "target": {"name": "header_name", "value": "header_value"}, "phase": "response", "akamai_behavior": "modifyOutgoingResponseHeader"},
+        "modifyOutgoingResponseHeader": {
+            "azion_behavior": lambda options: "filter_response_header" if options.get("action").upper() == "DELETE" else "add_response_header",
+            "target": {
+                "target": lambda options: f"\"{options.get('customHeaderName', '').strip()}\"",
+            },
+            "phase": "response",
+            "akamai_behavior": "modifyOutgoingResponseHeader"
+        },
         "removeOutgoingResponseHeader": {"azion_behavior": "filter_response_header", "target": "header_name", "phase": "response", "akamai_behavior": "removeOutgoingResponseHeader"},
         "allowTransferEncoding": {
             "azion_behavior": "add_request_header",
