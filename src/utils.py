@@ -224,20 +224,20 @@ def clean_and_parse_json(json_string: str) -> Optional[Any]:
             try:
                 # If that fails, try to evaluate it as a Python literal
                 return ast.literal_eval(json_string)
-            except Exception:
+            except ValueError:
                 pass
         
         # Try to parse as a plain object
         try:
             json_string = json_string.replace("'", '"')
             return json.loads(json_string)
-        except Exception:
+        except ValueError:
             pass
         
         logging.error("Failed to parse content as either JSON or HCL")
         return None
             
-    except Exception as e:
+    except ValueError as e:
         logging.error(f"Error parsing content: {str(e)}")
         return None
 
