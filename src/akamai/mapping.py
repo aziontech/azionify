@@ -174,15 +174,13 @@ MAPPING = {
         "imageManager": {"azion_behavior": "optimize_images"},
         "prefetch": {
             "azion_behavior": "optimize_images",
-            "target": {
-                "enabled": "enabled"
-            }
+            "target": {},
+            "akamai_behavior": "prefetch"
         },
         "prefetchable": {
             "azion_behavior": "optimize_images",
-            "target": {
-                "enabled": "enabled"
-            }
+            "target": {},
+            "akamai_behavior": "prefetchable"
         },
 
         # URL Rewrite
