@@ -225,7 +225,7 @@ def map_forward_host_header(options: Dict[str, Any], default_host: str = "$${hos
     custom_host_header = options.get("customForwardHostHeader")
 
     if forward_host_header == "REQUEST_HOST_HEADER":
-        return "${host}"
+        return "$${host}"
     elif forward_host_header == "ORIGIN_HOSTNAME":
         return options.get("hostname", default_host)
     elif forward_host_header == "CUSTOM" and custom_host_header:

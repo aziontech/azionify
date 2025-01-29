@@ -97,15 +97,15 @@ MAPPING = {
                 "prefresh_value": "prefreshval"
             }
         },
-        "downstreamCache": {
-            "azion_behavior": "set_cache_policy",
-            "target": {
-                "allow_behavior": "allowBehavior",
-                "behavior": "behavior",
-                "send_headers": "sendHeaders",
-                "send_private": "sendPrivate"
-            }
-        },
+        #"downstreamCache": {
+        #    "azion_behavior": "set_cache_policy",
+        #    "target": {
+        #        "allow_behavior": "allowBehavior",
+        #        "behavior": "behavior",
+        #        "send_headers": "sendHeaders",
+        #        "send_private": "sendPrivate"
+        #    }
+        #},
 
         # Cookies
         "modifyOutgoingResponseCookie": {"azion_behavior": "set_cookie", "target": {"name": "cookie_name", "value": "cookie_value"}, "phase": "response", "akamai_behavior": "modifyOutgoingResponseCookie"},
@@ -172,16 +172,16 @@ MAPPING = {
 
         # Image Optimization
         "imageManager": {"azion_behavior": "optimize_images"},
-        "prefetch": {
-            "azion_behavior": "optimize_images",
-            "target": {},
-            "akamai_behavior": "prefetch"
-        },
-        "prefetchable": {
-            "azion_behavior": "optimize_images",
-            "target": {},
-            "akamai_behavior": "prefetchable"
-        },
+        #"prefetch": {
+        #    "azion_behavior": "optimize_images",
+        #    "target": {},
+        #    "akamai_behavior": "prefetch"
+        #},
+        #"prefetchable": {
+        #    "azion_behavior": "optimize_images",
+        #    "target": {},
+        #    "akamai_behavior": "prefetchable"
+        #},
 
         # URL Rewrite
         "rewriteUrl": {
