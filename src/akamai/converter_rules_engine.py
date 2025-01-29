@@ -382,26 +382,36 @@ def behavior_cache_setting(context: Dict[str, Any], azion_resources: AzionResour
     parent_rule_name = context.get("parent_rule_name", None)
     rule_name = context.get("rule_name", None)
 
-    # Handle cache settings dependencies
-    cache_setttings = context.get("cache_setting", None)
-    if cache_setttings is None:
-        _, cache_setttings = azion_resources.query_azion_resource_by_type(
-            'azion_edge_application_cache_setting', sanitize_name(parent_rule_name))
+    behavior = options.get("behavior", "").upper()
+    if behavior in ["NO_STORE", "NO_CACHE"]:
+        azion_behavior = {
+                "name": "bypass_cache_phase",
+                "enabled": True,
+                "target": {},
+                "phase": "request"
+            }
+        return azion_behavior, None
+    else: 
+        # Handle cache settings dependencies
+        cache_setttings = context.get("cache_setting", None)
         if cache_setttings is None:
             _, cache_setttings = azion_resources.query_azion_resource_by_type(
-                'azion_edge_application_cache_setting', sanitize_name(rule_name))
+                'azion_edge_application_cache_setting', sanitize_name(parent_rule_name))
+            if cache_setttings is None:
+                _, cache_setttings = azion_resources.query_azion_resource_by_type(
+                    'azion_edge_application_cache_setting', sanitize_name(rule_name))
 
-    if cache_setttings:
-        cache_settings_name = cache_setttings.get("name")
-        cache_settings_ref = f'azion_edge_application_cache_setting.{cache_settings_name}'
+        if cache_setttings:
+            cache_settings_name = cache_setttings.get("name")
+            cache_settings_ref = f'azion_edge_application_cache_setting.{cache_settings_name}'
 
-        azion_behavior = {
-            "name": "set_cache_policy",
-            "enabled": True,
-            "target": {"target": cache_settings_ref + ".id"},
-            "description": f"Set cache policy to {options.get('name', '')}",
-            "phase": "request"
-        }
+            azion_behavior = {
+                "name": "set_cache_policy",
+                "enabled": True,
+                "target": {"target": cache_settings_ref + ".id"},
+                "description": f"Set cache policy to {options.get('name', '')}",
+                "phase": "request"
+            }
     return azion_behavior, cache_settings_ref
 
 def behavior_set_origin(context: Dict[str, Any], azion_resources: AzionResource, options: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
@@ -546,9 +556,10 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
 
             azion_behavior, cache_settings_ref = behavior_cache_setting(context, azion_resources, options)
             if azion_behavior:
-                depends_on.add(cache_settings_ref)
+                if cache_settings_ref is not None:
+                    depends_on.add(cache_settings_ref)
                 azion_behaviors.append(azion_behavior)
-                seen_behaviors.add("set_cache_policy")
+                seen_behaviors.add(azion_behavior.get("name"))
             else:
                 logging.debug(f"[rules_engine][process_behaviors] Cache settings not found for rule '{rule_name}'. Skipping.")
             continue
