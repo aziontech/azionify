@@ -3,7 +3,13 @@ import random
 from typing import Dict, List, Any, Set, Tuple
 from azion_resources import AzionResource
 from akamai.mapping import MAPPING
-from akamai.utils import map_forward_host_header, map_origin_type, replace_variables, map_operator
+from akamai.utils import (
+    map_forward_host_header,
+    map_origin_type,
+    replace_variables,
+    map_operator,
+    behavior_key
+)
 from utils import sanitize_name
 
 default_criteria = {
@@ -71,15 +77,14 @@ def create_rule_engine(azion_resources: AzionResource, rule: Dict[str, Any], con
 
             # Create response phase rule
             if len(response_behaviors) > 0:
-                for behavior in response_behaviors:
-                    resource = assemple_response_rule(processed_rule, 
+                resource = assemple_response_rule(processed_rule, 
                                                 rule_name, 
                                                 main_setting_name, 
                                                 azion_criteria, 
-                                                behavior, 
+                                                response_behaviors, 
                                                 depends_on)
-                    resources.append(resource)
-                    logging.info(f"[rules_engine] Rule engine resource created for rule: '{rule_name}'")
+                resources.append(resource)
+                logging.info(f"[rules_engine] Rule engine resource created for rule: '{rule_name}'")
 
             # Enable image optimization if necessary
             if "imageManager" in behaviors_names:
@@ -133,7 +138,7 @@ def assemple_request_rule(rule: Dict[str, Any], rule_name: str, main_setting_nam
     return resource
 
 
-def assemple_response_rule(rule: Dict[str, Any], rule_name: str, main_setting_name: str, azion_criteria: Dict[str, Any], behavior: Dict[str, Any], depends_on: List[str]) -> Dict[str, Any]:
+def assemple_response_rule(rule: Dict[str, Any], rule_name: str, main_setting_name: str, azion_criteria: Dict[str, Any], behaviors: List[Dict[str, Any]], depends_on: List[str]) -> Dict[str, Any]:
     '''
     Create a rule engine resource from Akamai rule data.
 
@@ -149,7 +154,8 @@ def assemple_response_rule(rule: Dict[str, Any], rule_name: str, main_setting_na
     Dict[str, Any]: Rule engine resource.
     '''
     
-    name = sanitize_name(f"{rule_name}_{behavior.get('name')}")
+    behavior_names = "_".join(sorted(set(b.get("name", "") for b in behaviors)))
+    name = sanitize_name(f"{rule_name}_{behavior_names}")
 
     # Find criteria for the behavior
     criterias = azion_criteria.get("response",{}).get("entries",None)
@@ -158,9 +164,10 @@ def assemple_response_rule(rule: Dict[str, Any], rule_name: str, main_setting_na
             selected_criteria = azion_criteria.get("response")
         else:
             for criteria in criterias:
-                if criteria.get("name", "") == behavior.get('name'):
-                    selected_criteria = {"entries": [criteria]}
-                    break
+                for behavior in behaviors:
+                    if criteria.get("name", "") == behavior.get('name'):
+                        selected_criteria = {"entries": [criteria]}
+                        break
     else:
         selected_criteria = azion_criteria.get("response_default")
     
@@ -170,10 +177,10 @@ def assemple_response_rule(rule: Dict[str, Any], rule_name: str, main_setting_na
         "attributes": {
             "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
             "results": {
-                "name": behavior.get("name"),
+                "name": name,
                 "description": rule.get("comments", ""),
                 "phase": "response",
-                "behaviors": [behavior]
+                "behaviors": behaviors
             },
             "depends_on": depends_on
         }
@@ -541,6 +548,10 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
         else:
             behavior_name = mapping["azion_behavior"]
 
+        if behavior_name is None:
+            logging.debug(f"[rules_engine][process_behaviors] Behavior '{ak_behavior_name}' has no azion_behavior. Skipping.")
+            continue
+
         logging.info(f"[rules_engine][process_behaviors] Mapping from '{ak_behavior_name}' to '{behavior_name}'")
 
         # Skip behaviors that are explicitly disabled
@@ -550,30 +561,34 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
 
         # Handle special behavior: set_cache_policy
         if mapping["azion_behavior"] == "set_cache_policy":
-            # Unique key for set_cache_policy
-            if "set_cache_policy" in seen_behaviors:
-                continue
-
             azion_behavior, cache_settings_ref = behavior_cache_setting(context, azion_resources, options)
+            unique_key = behavior_key(azion_behavior)
+            # Unique key for set_cache_policy
+            if unique_key in seen_behaviors:
+                logging.debug(f"[rules_engine][process_behaviors] already processed behavior {behavior_name}, key {unique_key}. Skipping.")
+                continue
+    
             if azion_behavior:
                 if cache_settings_ref is not None:
                     depends_on.add(cache_settings_ref)
                 azion_behaviors.append(azion_behavior)
-                seen_behaviors.add(azion_behavior.get("name"))
+                seen_behaviors.add(unique_key)
             else:
                 logging.debug(f"[rules_engine][process_behaviors] Cache settings not found for rule '{rule_name}'. Skipping.")
             continue
 
         # Handle special behavior: set_origin
         if mapping["azion_behavior"] == "set_origin":
+            azion_behavior, origin_settings_ref = behavior_set_origin(context, azion_resources, options)
+            unique_key = behavior_key(azion_behavior)
             # Unique key for set_origin
-            if "set_origin" in seen_behaviors:
+            if unique_key in seen_behaviors:
+                logging.debug(f"[rules_engine][process_behaviors] already processed behavior {behavior_name}, key {unique_key}. Skipping.")
                 continue
 
-            azion_behavior, origin_settings_ref = behavior_set_origin(context, azion_resources, options)
             if azion_behavior:
                 azion_behaviors.append(azion_behavior)
-                seen_behaviors.add("set_origin")
+                seen_behaviors.add(unique_key)
                 depends_on.add(origin_settings_ref)
             else:
                 logging.debug(f"[rules_engine][process_behaviors] Origin settings not found for rule '{rule_name}'. Skipping.")
@@ -581,44 +596,46 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
 
             # Handle compression
             if options.get("compress", True):
-                # Unique key for enable_gzip
-                if "origin_enable_gzip" in seen_behaviors:
-                    continue
-
                 azion_behavior = {
                     "name": "enable_gzip",
                     "enabled": True,
                     "description": "Compress content",
                     "target": {},
                 }
+
+                unique_key = behavior_key(azion_behavior)
+                # Unique key for enable_gzip
+                if unique_key in seen_behaviors:
+                    logging.debug(f"[rules_engine][process_behaviors] already processed behavior {behavior_name}, key {unique_key}. Skipping.")
+                    continue
+
                 azion_behaviors.append(azion_behavior)
-                seen_behaviors.add("origin_enable_gzip")
+                seen_behaviors.add(unique_key)
 
             # Handle true client ip (add_request_header)
             if options.get("enableTrueClientIp", False) == True:
                 trueClientIpHeader = options.get("trueClientIpHeader", "")
                 if trueClientIpHeader:
-                    # Unique key for add_request_header
-                    if "origin_add_request_header" in seen_behaviors:
-                        continue
-
                     azion_behavior = {
                         "name": "add_request_header",
                         "enabled": True,
                         "description": f"Add host header to {trueClientIpHeader}",
                         "target": { "target": '"' + f'{trueClientIpHeader}: ' + "$${remote_addr}" + '"' },
                     }
+
+                    unique_key = behavior_key(azion_behavior)
+                    # Unique key for add_request_header
+                    if unique_key in seen_behaviors:
+                        logging.debug(f"[rules_engine][process_behaviors] already processed behavior {behavior_name}, key {unique_key}. Skipping.")
+                        continue
+
                     azion_behaviors.append(azion_behavior)
-                    seen_behaviors.add("origin_add_request_header")
+                    seen_behaviors.add(unique_key)
             continue
         
 
         # Handle special behavior: set_host_header
         if mapping["azion_behavior"] == "set_host_header":
-            # Unique key for set_host_header
-            if "set_host_header" in seen_behaviors:
-                continue
-
             host_header = map_forward_host_header(options)
             azion_behavior = {
                 "name": "set_host_header",
@@ -627,8 +644,15 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
                 "target": { "host_header": host_header },
                 "phase": "request"
             }
+
+            unique_key = behavior_key(azion_behavior)
+            # Unique key for set_host_header
+            if unique_key in seen_behaviors:
+                logging.debug(f"[rules_engine][process_behaviors] already processed behavior {behavior_name}, key {unique_key}. Skipping.")
+                continue
+
             azion_behaviors.append(azion_behavior)
-            seen_behaviors.add("set_host_header")
+            seen_behaviors.add(unique_key)
             continue
 
         # Handle special behavior: capture_match_groups
@@ -636,9 +660,9 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
             azion_behavior, _ = behavior_capture_match_groups(context, azion_resources, options, mapping, behavior)
             if azion_behavior:
                 # Create a unique key to track this behavior
-                unique_key = (azion_behavior["name"], tuple(sorted(azion_behavior.get("target", {}).items())))
+                unique_key = behavior_key(azion_behavior)
                 if unique_key in seen_behaviors:
-                    logging.debug(f"[rules_engine][process_behaviors] Duplicate behavior detected: {unique_key}. Skipping.")
+                    logging.debug(f"[rules_engine][process_behaviors] already processed behavior {behavior_name}, key {unique_key}. Skipping.")
                     continue
 
                 azion_behaviors.append(azion_behavior)
@@ -647,7 +671,7 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
 
         # Skip if we've already processed this behavior type
         if behavior_name in seen_behaviors:
-            logging.debug(f"Behavior '{behavior_name}' already processed. Skipping.")
+            logging.debug(f"[rules_engine][process_behaviors] already processed behavior {behavior_name}, key {unique_key}. Skipping.")
             continue
 
         azion_behavior = {
@@ -685,8 +709,12 @@ def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, A
             if target:  # Only add target if we have values
                 azion_behavior["target"] = target
 
+        unique_key = behavior_key(azion_behavior)
+        if unique_key in seen_behaviors:
+            logging.debug(f"[rules_engine][process_behaviors] already processed behavior {behavior_name}, key {unique_key}. Skipping.")
+            continue
         azion_behaviors.append(azion_behavior)
-        seen_behaviors.add(behavior_name)
+        seen_behaviors.add(unique_key)
 
     # Add consolidated cache policy if we collected any optionss
     if cache_policy_options:

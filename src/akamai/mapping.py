@@ -121,17 +121,17 @@ MAPPING = {
         "modifyOutgoingResponseHeader": {
             "azion_behavior": lambda options: "filter_response_header" if options.get("action").upper() == "DELETE" else "add_response_header",
             "target": {
-                "target": lambda options: f"\"{options.get('customHeaderName', '').strip()}\"",
+                "target": lambda options: f"\"{options.get('customHeaderName', '').strip()}\""
             },
             "phase": "response",
             "akamai_behavior": "modifyOutgoingResponseHeader"
         },
         "removeOutgoingResponseHeader": {"azion_behavior": "filter_response_header", "target": "header_name", "phase": "response", "akamai_behavior": "removeOutgoingResponseHeader"},
         "allowTransferEncoding": {
-            "azion_behavior": "add_request_header",
+            "azion_behavior": lambda options: None if options.get("enabled", True) else "filter_request_header",
             "target": {
                 "name": "Transfer-Encoding",
-                "target": lambda options: '"Transfer-Encoding: chunked"' if options.get("enabled", True) else None
+                "target": "Transfer-Encoding"
             }
         },
         "removeVary": {"azion_behavior": "filter_response_header","target": {"target": "Vary"}, "phase": "response", "akamai_behavior": "removeVary"},
