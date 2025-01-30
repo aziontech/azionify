@@ -280,6 +280,22 @@ def map_operator(akamai_operator: str) -> str:
         "STARTS_WITH_ONE_OF": "starts_with",
         "DOES_NOT_START_WITH": "does_not_start_with",
         "EXISTS": "exists",
-        "DOES_NOT_EXIST": "does_not_exist"
+        "DOES_NOT_EXIST": "does_not_exist",
+        "IS_ONE_OF": "is_equal",
+        "IS_NOT_ONE_OF": "is_not_equal"
     }
     return operator_map.get(akamai_operator, "matches")  # default to matches if unknown
+
+def behavior_key(behavior: dict) -> str:
+    """
+    Creates a unique string key for a behavior based on its name and target parameters.
+
+    Parameters:
+        behavior (dict): The behavior dictionary containing 'name' and optional 'target' keys.
+
+    Returns:
+        str: A unique string key combining the behavior name and its target parameters.
+    """
+    target_items = sorted(behavior.get("target", {}).items())
+    target_str = "_".join(f"{k}:{v}" for k, v in target_items) if target_items else ""
+    return f"{behavior['name']}_{target_str}" if target_str else behavior["name"]
