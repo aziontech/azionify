@@ -43,9 +43,11 @@ MAPPING = {
         "deviceGroup": {"azion_condition": "$${device_group}", "azion_operator": "is_equal"},
         "geoip_country_code": {"azion_condition": "$${geoip_country_code}", "azion_operator": "is_equal"},
         "contentType": {
-            "azion_condition": "$${http_content_type}", 
-            "azion_operator": "matches",
-            "input_value": lambda values: r"(%s)" % "|".join(values).replace('/', r'\\/').replace('.', r'\\.')
+            "name": "contentType",
+            "azion_condition": "$${request_uri}", 
+            "azion_operator": "starts_with",
+            "input_value": lambda values: "/" 
+            #lambda values: r"(%s)" % "|".join(values).replace('/', r'\\/').replace('.', r'\\.')
         },
         "queryString": {"azion_condition": "$${args}", "azion_operator": "matches"},
         "queryStringParam": {"azion_condition": "$${arg_param}", "azion_operator": "matches"},
