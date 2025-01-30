@@ -34,7 +34,12 @@ MAPPING = {
             "input_value": lambda values: r"(%s)" % "|".join(values).replace('/', r'\\/')
         },
         "hostname": {"azion_condition": "$${host}", "azion_operator": "is_equal"},
-        "requestProtocol": {"azion_condition": "$${scheme}", "azion_operator": "is_equal"},
+        "requestProtocol": {
+            "name": "requestProtocol",
+            "azion_condition": "$${scheme}", 
+            "azion_operator": "is_equal",
+            "input_value": lambda values: f'{values[0].lower()}'
+        },
         "deviceGroup": {"azion_condition": "$${device_group}", "azion_operator": "is_equal"},
         "geoip_country_code": {"azion_condition": "$${geoip_country_code}", "azion_operator": "is_equal"},
         "contentType": {
