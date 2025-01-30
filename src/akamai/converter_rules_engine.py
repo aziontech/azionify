@@ -323,8 +323,8 @@ def process_criteria(criteria: List[Dict[str, Any]], behaviors_names: List[str])
 
             # Handle input values
             values = options.get("values", [])
-            if isinstance(values, str):
-                values = [values]
+            if len(values) == 0:
+                values = [options.get("value", "")]
 
             # Handle single or multiple values based on the operator
             if azion_operator in {"exists", "does_not_exist"}:
