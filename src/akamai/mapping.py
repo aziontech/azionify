@@ -52,7 +52,7 @@ MAPPING = {
         "queryString": {"azion_condition": "$${args}", "azion_operator": "matches"},
         "queryStringParam": {"azion_condition": "$${arg_param}", "azion_operator": "matches"},
         "cookie": {"azion_condition": "$${cookie_name}", "azion_operator": "matches"},
-        "requestHeader": {"azion_condition": "$${http_header}", "azion_operator": "matches"},
+        "requestHeader": {"azion_condition": "$${http_header}", "azion_operator": None},
         "clientIP": {"azion_condition": "$${remote_addr}", "azion_operator": "matches"},
         "requestMethod": {"azion_condition": "$${request_method}", "azion_operator": "matches"},
         "requestUri": {"azion_condition": "$${request_uri}", "azion_operator": "matches"},
