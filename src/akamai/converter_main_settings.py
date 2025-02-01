@@ -71,7 +71,7 @@ def create_main_setting(azion_resources: AzionResource, attributes: Dict[str, An
         "edge_functions": True,
         "image_optimization": True,
         "http3": False,
-        "application_acceleration": False,
+        "application_acceleration": True,
         "l2_caching": False,
         "load_balancer": False,
         "device_detection": False,
