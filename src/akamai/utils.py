@@ -1,8 +1,25 @@
 import logging
 import re
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from utils import clean_and_parse_json, sanitize_name
 
+operator_map = {
+        "EQUALS": "is_equal",
+        "EQUALS_ONE_OF": "is_equal",
+        "DOES_NOT_EQUAL": "is_not_equal",
+        "DOES_NOT_EQUAL_ONE_OF": "is_not_equal",
+        "MATCHES": "matches",
+        "MATCHES_ONE_OF": "matches",
+        "DOES_NOT_MATCH": "does_not_match",
+        "DOES_NOT_MATCH_ONE_OF": "does_not_match",
+        "STARTS_WITH": "starts_with",
+        "STARTS_WITH_ONE_OF": "starts_with",
+        "DOES_NOT_START_WITH": "does_not_start_with",
+        "EXISTS": "exists",
+        "DOES_NOT_EXIST": "does_not_exist",
+        "IS_ONE_OF": "is_equal",
+        "IS_NOT_ONE_OF": "is_not_equal"
+    }
 
 def get_main_setting_name(akamai_config: dict) -> str:
     """
@@ -267,24 +284,26 @@ def map_operator(akamai_operator: str) -> str:
     Returns:
         str: Azion operator
     """
-    operator_map = {
-        "EQUALS": "is_equal",
-        "EQUALS_ONE_OF": "is_equal",
-        "DOES_NOT_EQUAL": "is_not_equal",
-        "DOES_NOT_EQUAL_ONE_OF": "is_not_equal",
-        "MATCHES": "matches",
-        "MATCHES_ONE_OF": "matches",
-        "DOES_NOT_MATCH": "does_not_match",
-        "DOES_NOT_MATCH_ONE_OF": "does_not_match",
-        "STARTS_WITH": "starts_with",
-        "STARTS_WITH_ONE_OF": "starts_with",
-        "DOES_NOT_START_WITH": "does_not_start_with",
-        "EXISTS": "exists",
-        "DOES_NOT_EXIST": "does_not_exist",
-        "IS_ONE_OF": "is_equal",
-        "IS_NOT_ONE_OF": "is_not_equal"
-    }
     return operator_map.get(akamai_operator, "matches")  # default to matches if unknown
+
+def is_positive_operator(operator: str) -> bool:
+    """
+    Determines if an operator represents a positive or negative operation.
+    
+    Args:
+        operator (str): The operator to check
+        
+    Returns:
+        bool: True if the operator is positive (EQUALS, MATCHES, etc),
+              False if negative (DOES_NOT_EQUAL, DOES_NOT_MATCH, etc)
+    """
+    negative_operators = {
+        "DOES_NOT_EQUAL", "DOES_NOT_EQUAL_ONE_OF",
+        "DOES_NOT_MATCH", "DOES_NOT_MATCH_ONE_OF",
+        "DOES_NOT_START_WITH", "DOES_NOT_EXIST",
+        "IS_NOT_ONE_OF"
+    }
+    return operator not in negative_operators
 
 def behavior_key(behavior: dict) -> str:
     """
@@ -299,3 +318,17 @@ def behavior_key(behavior: dict) -> str:
     target_items = sorted(behavior.get("target", {}).items())
     target_str = "_".join(f"{k}:{v}" for k, v in target_items) if target_items else ""
     return f"{behavior['name']}_{target_str}" if target_str else behavior["name"]
+
+def get_input_hostname(values: List[str]) -> str:
+    # Convert hostname patterns to regex patterns
+    patterns = []
+    for value in values:
+        if value.startswith('*.'):
+            # Convert *.domain.com to regex pattern that matches any subdomain
+            # First replace dots with escaped dots, then replace *. with the pattern
+            value_with_escaped_dots = value[2:].replace('.', r'\\.')  # Remove *. and escape remaining dots
+            pattern = f'[^.]+\\\\.{value_with_escaped_dots}'  # Triple backslash for the dot after [^.]+
+        else:
+            pattern = value.replace('.', r'\\.')
+        patterns.append(pattern)
+    return r"\\.(%s)(\\?.*)?$" % "|".join(patterns)

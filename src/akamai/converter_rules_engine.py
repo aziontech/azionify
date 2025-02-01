@@ -318,8 +318,11 @@ def process_criteria(criteria: List[Dict[str, Any]], behaviors_names: List[str])
 
         try:
             # Map operator
-            akamai_operator = options.get("matchOperator", "EQUALS")
-            azion_operator = mapping.get("azion_operator", None)
+            akamai_operator = options.get("matchOperator", "EQUALS") 
+            if callable(mapping.get("azion_operator")):
+                azion_operator = mapping["azion_operator"](options)
+            else:
+                azion_operator = mapping.get("azion_operator", None)
             if azion_operator is None:
                 azion_operator = map_operator(akamai_operator)
 

@@ -1,4 +1,4 @@
-from .utils import replace_variables
+from .utils import replace_variables, get_input_hostname, is_positive_operator
 
 # Mapping for Akamai to Azion behavior/criteria conversions
 MAPPING = {
@@ -33,7 +33,12 @@ MAPPING = {
             "azion_operator": "matches",
             "input_value": lambda values: r"(%s)" % "|".join(values).replace('/', r'\\/')
         },
-        "hostname": {"azion_condition": "$${host}", "azion_operator": "is_equal"},
+        "hostname": {
+            "name": "hostname",
+            "azion_condition": "$${host}", 
+            "azion_operator": lambda options: "matches" if is_positive_operator(options.get("matchOperator")) else "does_not_match",
+            "input_value": lambda values: f'{get_input_hostname(values)}'
+        },
         "requestProtocol": {
             "name": "requestProtocol",
             "azion_condition": "$${scheme}", 
