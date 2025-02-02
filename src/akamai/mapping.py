@@ -157,7 +157,7 @@ MAPPING = {
         "redirect": {
             "azion_behavior": lambda options: "redirect_http_to_https" if options.get("destinationHostname") == "SAME_AS_REQUEST" else ("redirect_http_to_https" if options.get("responseCode") not in [301, 302] else f"redirect_to_{options.get('responseCode')}"),
              "target": {
-                "target": lambda options: get_redirect_target(options)
+                "target": get_redirect_target
              },
              "akamai_behavior": "redirect"
         },
