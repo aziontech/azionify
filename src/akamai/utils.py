@@ -332,3 +332,82 @@ def get_input_hostname(values: List[str]) -> str:
             pattern = value.replace('.', r'\\.')
         patterns.append(pattern)
     return r"\\.(%s)(\\?.*)?$" % "|".join(patterns)
+
+
+def get_redirect_target(options):
+    """
+    Generate redirect target based on Akamai redirect behavior options.
+    Maps Akamai redirect variables to Azion compatible format.
+    
+    Args:
+        options: Dictionary containing Akamai redirect configuration
+        
+    Supported options:
+    - destinationProtocol: SAME_AS_REQUEST, HTTP, HTTPS
+    - destinationHostname: SAME_AS_REQUEST, SUBDOMAIN, SIBLING, OTHER
+    - destinationPath: SAME_AS_REQUEST, PREFIX_REQUEST, OTHER
+    - queryString: APPEND or IGNORE
+    
+    Returns:
+        str: URL template string wrapped in double quotes
+    """
+    # Handle protocol
+    protocol = options.get('destinationProtocol', 'SAME_AS_REQUEST')
+    scheme = {
+        'SAME_AS_REQUEST': '${scheme}',
+        'HTTP': 'http',
+        'HTTPS': 'https'
+    }.get(protocol, '${scheme}')
+    
+    # Handle hostname
+    hostname_type = options.get('destinationHostname', 'SAME_AS_REQUEST')
+    if hostname_type == 'SAME_AS_REQUEST':
+        hostname = '${host}'
+    elif hostname_type == 'SUBDOMAIN':
+        subdomain = options.get('destinationHostnameSubdomain', '')
+        hostname = f"{subdomain}.${host}"
+    elif hostname_type == 'SIBLING':
+        sibling = options.get('destinationHostnameSibling', '')
+        hostname = f"${host}".replace('www.', f"{sibling}.")
+    elif hostname_type == 'OTHER':
+        hostname = options.get('destinationHostnameOther', '${host}')
+    else:
+        hostname = '${host}'
+    
+    # Handle path and query string
+    path_type = options.get('destinationPath', 'SAME_AS_REQUEST')
+    
+    if path_type == 'SAME_AS_REQUEST':
+        path = '${uri}'
+        query_string = '${args}' if options.get('queryString') == 'APPEND' else ''
+    elif path_type == 'PREFIX_REQUEST':
+        prefix = options.get('destinationPathPrefix', '')
+        suffix_status = options.get('destinationPathSuffixStatus', 'NO_SUFFIX')
+        suffix = options.get('destinationPathSuffix', '') if suffix_status == 'SUFFIX' else ''
+        path = f"{prefix}/${{uri}}{suffix}"
+        query_string = '${args}' if options.get('queryString') == 'APPEND' else ''
+    elif path_type == 'OTHER':
+        other_path = options.get('destinationPathOther', '')
+        if not other_path:
+            path = '${uri}'
+            query_string = '${args}' if options.get('queryString') == 'APPEND' else ''
+        else:
+            path = other_path
+            query_string = ''
+    else:
+        path = '${uri}'
+        query_string = '${args}' if options.get('queryString') == 'APPEND' else ''
+    
+    # Build final URL
+    url = f"{scheme}://{hostname}"
+    if path:
+        # Remove duplicate slashes and ensure path starts with /
+        while '//' in path:
+            path = path.replace('//', '/')
+        if not path.startswith('/'):
+            path = '/' + path
+        url = f"{url}{path}"
+    if query_string and '?' not in url:
+        url = f"{url}?{query_string}"
+    
+    return f'"{url}"'

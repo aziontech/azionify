@@ -1,4 +1,9 @@
-from .utils import replace_variables, get_input_hostname, is_positive_operator
+from .utils import (
+    replace_variables, 
+    get_input_hostname, 
+    get_redirect_target, 
+    is_positive_operator
+)
 
 # Mapping for Akamai to Azion behavior/criteria conversions
 MAPPING = {
@@ -152,8 +157,9 @@ MAPPING = {
         "redirect": {
             "azion_behavior": lambda options: "redirect_http_to_https" if options.get("destinationHostname") == "SAME_AS_REQUEST" else ("redirect_http_to_https" if options.get("responseCode") not in [301, 302] else f"redirect_to_{options.get('responseCode')}"),
              "target": {
-                "target": lambda options: f"$${{scheme}}://{options.get('destinationHostnameOther', '$${{host}}')}/$${{request_uri}}"
-             }
+                "target": lambda options: get_redirect_target(options)
+             },
+             "akamai_behavior": "redirect"
         },
         "redirectPermanent": {"azion_behavior": "redirect_http_to_https", "target": "location"},
         "redirectTemporary": {"azion_behavior": "redirect_http_to_https", "target": "location"},
