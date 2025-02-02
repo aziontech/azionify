@@ -354,49 +354,49 @@ def get_redirect_target(options):
     # Handle protocol
     protocol = options.get('destinationProtocol', 'SAME_AS_REQUEST')
     scheme = {
-        'SAME_AS_REQUEST': '${scheme}',
+        'SAME_AS_REQUEST': '$${scheme}',
         'HTTP': 'http',
         'HTTPS': 'https'
-    }.get(protocol, '${scheme}')
+    }.get(protocol, '$${scheme}')
     
     # Handle hostname
     hostname_type = options.get('destinationHostname', 'SAME_AS_REQUEST')
     if hostname_type == 'SAME_AS_REQUEST':
-        hostname = '${host}'
+        hostname = '$${host}'
     elif hostname_type == 'SUBDOMAIN':
         subdomain = options.get('destinationHostnameSubdomain', '')
-        hostname = f"{subdomain}.${host}"
+        hostname = f"{subdomain}.$${{'host'}}"
     elif hostname_type == 'SIBLING':
         sibling = options.get('destinationHostnameSibling', '')
-        hostname = f"${host}".replace('www.', f"{sibling}.")
+        hostname = '$${host}'.replace('www.', f"{sibling}.")
     elif hostname_type == 'OTHER':
-        hostname = options.get('destinationHostnameOther', '${host}')
+        hostname = options.get('destinationHostnameOther', '$${host}')
     else:
-        hostname = '${host}'
+        hostname = '$${host}'
     
     # Handle path and query string
     path_type = options.get('destinationPath', 'SAME_AS_REQUEST')
     
     if path_type == 'SAME_AS_REQUEST':
-        path = '${uri}'
-        query_string = '${args}' if options.get('queryString') == 'APPEND' else ''
+        path = '$${uri}'
+        query_string = '$${args}' if options.get('queryString') == 'APPEND' else ''
     elif path_type == 'PREFIX_REQUEST':
         prefix = options.get('destinationPathPrefix', '')
         suffix_status = options.get('destinationPathSuffixStatus', 'NO_SUFFIX')
         suffix = options.get('destinationPathSuffix', '') if suffix_status == 'SUFFIX' else ''
-        path = f"{prefix}/${{uri}}{suffix}"
-        query_string = '${args}' if options.get('queryString') == 'APPEND' else ''
+        path = f"{prefix}/$${{'uri'}}{suffix}"
+        query_string = '$${args}' if options.get('queryString') == 'APPEND' else ''
     elif path_type == 'OTHER':
         other_path = options.get('destinationPathOther', '')
         if not other_path:
-            path = '${uri}'
-            query_string = '${args}' if options.get('queryString') == 'APPEND' else ''
+            path = '$${uri}'
+            query_string = '$${args}' if options.get('queryString') == 'APPEND' else ''
         else:
             path = other_path
             query_string = ''
     else:
-        path = '${uri}'
-        query_string = '${args}' if options.get('queryString') == 'APPEND' else ''
+        path = '$${uri}'
+        query_string = '$${args}' if options.get('queryString') == 'APPEND' else ''
     
     # Build final URL
     url = f"{scheme}://{hostname}"
