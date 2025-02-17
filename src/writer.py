@@ -364,7 +364,9 @@ def validate_cache_settings(cache_settings: dict) -> dict:
             "enable_stale_cache": enable_stale_cache,
             "cache_by_cookies": "ignore",
             "cache_by_query_string": "ignore",
-            "adaptive_delivery_action": "ignore"
+            "adaptive_delivery_action": "ignore",
+            "is_slice_configuration_enabled": "false",
+            "is_slice_edge_caching_enabled": "false"
         }
 
     except Exception as e:
@@ -403,6 +405,8 @@ def write_cache_setting_block(f, resource: dict):
         write_indented(f, f'cache_by_query_string = "{validated_settings["cache_by_query_string"]}"', 2)
         write_indented(f, f'cache_by_cookies = "{validated_settings["cache_by_cookies"]}"', 2)
         write_indented(f, f'enable_stale_cache = {validated_settings["enable_stale_cache"]}', 2)
+        write_indented(f, f'is_slice_configuration_enabled = {validated_settings["is_slice_configuration_enabled"]}', 2)
+        write_indented(f, f'is_slice_edge_caching_enabled = {validated_settings["is_slice_edge_caching_enabled"]}', 2)
         write_indented(f, "}", 1)
         write_depends_on(f, resource.get("attributes", {}))
         write_indented(f, "}", 0)
