@@ -23,7 +23,9 @@ def map_allow_behavior_to_azion(allow_behavior: str, ttl: int) -> Dict[str, Any]
         "adaptive_delivery_action": "ignore",
         "cache_by_query_string": "ignore",
         "cache_by_cookies": "ignore",
-        "enable_stale_cache": 'false'
+        "enable_stale_cache": "false",
+        "is_slice_configuration_enabled": "false",
+        "is_slice_edge_caching_enabled": "false"
     }
 
     if allow_behavior == "ALLOW":
