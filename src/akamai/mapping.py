@@ -106,6 +106,7 @@ MAPPING = {
                 "cdn_cache_settings_maximum_ttl": "ttl",
                 "is_slice_configuration_enabled": False,
                 "is_slice_edge_caching_enabled": False,
+                "slice_configuration_range": 1024,
                 "enable_stale_cache": lambda options: not options.get("mustRevalidate", False),
             },
         },

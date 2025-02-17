@@ -366,7 +366,8 @@ def validate_cache_settings(cache_settings: dict) -> dict:
             "cache_by_query_string": "ignore",
             "adaptive_delivery_action": "ignore",
             "is_slice_configuration_enabled": "false",
-            "is_slice_edge_caching_enabled": "false"
+            "is_slice_edge_caching_enabled": "false",
+            "slice_configuration_range": 1024
         }
 
     except Exception as e:
