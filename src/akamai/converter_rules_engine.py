@@ -249,7 +249,7 @@ def process_conditional_rule(rule: Dict[str, Any]) -> Dict[str, Any]:
             else:
                 if condition_name == "requestHeader":
                     header_name = condition["options"]["headerName"]
-                    mapping["azion_condition"] = f"$${{http_{header_name}}}"
+                    mapping["azion_condition"] = f"$${{http_{sanitize_name(header_name)}}}"
                 # Handle other criteria types
                 azion_conditions.append({
                     "conditional": mapping["azion_condition"],
