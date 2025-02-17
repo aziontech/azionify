@@ -94,3 +94,13 @@ For questions or support, feel free to reach out:
 ---
 
 ### Happy Converting with Azionify! 🎉
+
+
+## PAssar a faca no xml com aspas = CONF AMAZONIA
+
+# Substituir \. por  ^ no BLOG
+
+# python src/main.py --input  --output
+
+# o criteria requestHeader
+# com headerName
