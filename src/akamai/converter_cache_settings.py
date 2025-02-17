@@ -103,7 +103,6 @@ def create_cache_setting(azion_resources: AzionResource, rules: List[Dict[str, A
     else:
         cache_attributes["enable_stale_cache"] = 'false'
 
-
     #depends_on
     depends_on = [f"azion_edge_application_main_setting.{main_setting_name}"]
     _, origin = azion_resources.query_azion_resource_by_type("azion_edge_application_origin", name)
