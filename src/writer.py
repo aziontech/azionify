@@ -408,6 +408,7 @@ def write_cache_setting_block(f, resource: dict):
         write_indented(f, f'enable_stale_cache = {validated_settings["enable_stale_cache"]}', 2)
         write_indented(f, f'is_slice_configuration_enabled = {validated_settings["is_slice_configuration_enabled"]}', 2)
         write_indented(f, f'is_slice_edge_caching_enabled = {validated_settings["is_slice_edge_caching_enabled"]}', 2)
+        write_indented(f, f'slice_configuration_range = {validated_settings["slice_configuration_range"]}', 2)
         write_indented(f, "}", 1)
         write_depends_on(f, resource.get("attributes", {}))
         write_indented(f, "}", 0)
