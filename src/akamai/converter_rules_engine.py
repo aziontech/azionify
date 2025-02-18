@@ -20,7 +20,12 @@ default_criteria = {
     "input_value": "/"
 }
 
-def create_rule_engine(azion_resources: AzionResource, rule: Dict[str, Any], context: Dict[str, Any], name: str = None) -> List[Dict[str, Any]]:
+def create_rule_engine(
+        azion_resources: AzionResource,
+        rule: Dict[str, Any],
+        context: Dict[str, Any],
+        name: str = None
+    ) -> List[Dict[str, Any]]:
     """
     Create a rule engine resource from Akamai rule data.
 
@@ -44,7 +49,9 @@ def create_rule_engine(azion_resources: AzionResource, rule: Dict[str, Any], con
     behaviors = rule.get("behaviors", [])
     criteria = rule.get("criteria", [])
 
-    logging.info(f"[rules_engine] Found {len(behaviors)} behaviors and {len(criteria)} criteria for rule: '{rule_name}'")
+    logging.info(
+        f"[rules_engine] Found {len(behaviors)} behaviors and {len(criteria)} criteria for rule: '{rule_name}'"
+    )
 
     try:
         # Create resource if either behaviors or criteria exist
@@ -61,12 +68,16 @@ def create_rule_engine(azion_resources: AzionResource, rule: Dict[str, Any], con
             depends_on = [f"azion_edge_application_main_setting.{main_setting_name}"]
             depends_on.extend(list(depends_on_behaviors))
 
-            request_behaviors = list(filter(lambda behavior: behavior.get('phase', 'request') == 'request', azion_behaviors))
-            response_behaviors = list(filter(lambda behavior: behavior.get('phase', 'request') == 'response', azion_behaviors))
+            request_behaviors = list(
+                filter(lambda behavior: behavior.get('phase', 'request') == 'request', azion_behaviors)
+            )
+            response_behaviors = list(
+                filter(lambda behavior: behavior.get('phase', 'request') == 'response', azion_behaviors)
+            )
 
             # Create request phase rule
             if len(request_behaviors) > 0:
-                resource = assemple_request_rule(processed_rule, 
+                resource = assemble_request_rule(processed_rule, 
                                                 rule_name, 
                                                 main_setting_name, 
                                                 azion_criteria, 
@@ -77,7 +88,7 @@ def create_rule_engine(azion_resources: AzionResource, rule: Dict[str, Any], con
 
             # Create response phase rule
             if len(response_behaviors) > 0:
-                resource = assemple_response_rule(processed_rule, 
+                resource = assemble_response_rule(processed_rule, 
                                                 rule_name, 
                                                 main_setting_name, 
                                                 azion_criteria, 
@@ -100,8 +111,15 @@ def create_rule_engine(azion_resources: AzionResource, rule: Dict[str, Any], con
 
     return resources
 
-def assemple_request_rule(rule: Dict[str, Any], rule_name: str, main_setting_name: str, azion_criteria: Dict[str, Any], request_behaviors: List[Dict[str, Any]], depends_on: List[str]) -> Dict[str, Any]:
-    '''
+def assemble_request_rule(
+        rule: Dict[str, Any],
+        rule_name: str,
+        main_setting_name: str,
+        azion_criteria: Dict[str, Any],
+        request_behaviors: List[Dict[str, Any]],
+        depends_on: List[str]
+    ) -> Dict[str, Any]:
+    """
     Create a rule engine resource from Akamai rule data.
 
     Parameters:
@@ -114,7 +132,7 @@ def assemple_request_rule(rule: Dict[str, Any], rule_name: str, main_setting_nam
 
     Returns:
     Dict[str, Any]: Rule engine resource.
-    '''
+    """
     phase = "request" if rule_name != "default" else "default"
     resource = {
         "type": "azion_edge_application_rule_engine",
@@ -137,9 +155,15 @@ def assemple_request_rule(rule: Dict[str, Any], rule_name: str, main_setting_nam
         resource["attributes"]["results"]["criteria"] = criteria
     return resource
 
-
-def assemple_response_rule(rule: Dict[str, Any], rule_name: str, main_setting_name: str, azion_criteria: Dict[str, Any], behaviors: List[Dict[str, Any]], depends_on: List[str]) -> Dict[str, Any]:
-    '''
+def assemble_response_rule(
+    rule: Dict[str, Any],
+    rule_name: str,
+    main_setting_name: str,
+    azion_criteria: Dict[str, Any],
+    behaviors: List[Dict[str, Any]],
+    depends_on: List[str]
+    ) -> Dict[str, Any]:
+    """
     Create a rule engine resource from Akamai rule data.
 
     Parameters:
@@ -152,7 +176,7 @@ def assemple_response_rule(rule: Dict[str, Any], rule_name: str, main_setting_na
 
     Returns:
     Dict[str, Any]: Rule engine resource.
-    '''
+    """
     
     behavior_names = "_".join(sorted(set(b.get("name", "") for b in behaviors)))
     name = sanitize_name(f"{rule_name}_{behavior_names}")
@@ -223,6 +247,9 @@ def process_conditional_rule(rule: Dict[str, Any]) -> Dict[str, Any]:
                         "input_value": "|".join(content_types)  # Join multiple content types with OR operator
                     })
             else:
+                if condition_name == "requestHeader":
+                    header_name = condition["options"]["headerName"]
+                    mapping["azion_condition"] = f"$${{http_{sanitize_name(header_name)}}}"
                 # Handle other criteria types
                 azion_conditions.append({
                     "conditional": mapping["azion_condition"],
@@ -375,7 +402,11 @@ def process_criteria(criteria: List[Dict[str, Any]], behaviors_names: List[str])
 
     return azion_criteria
 
-def behavior_cache_setting(context: Dict[str, Any], azion_resources: AzionResource, options: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
+def behavior_cache_setting(
+    context: Dict[str, Any],
+    azion_resources: AzionResource,
+    options: Dict[str, Any]
+    ) -> Tuple[Dict[str, Any], str]:
     """
     Handles cache settings dependencies for a behavior.
 
@@ -426,7 +457,11 @@ def behavior_cache_setting(context: Dict[str, Any], azion_resources: AzionResour
             }
     return azion_behavior, cache_settings_ref
 
-def behavior_set_origin(context: Dict[str, Any], azion_resources: AzionResource, options: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
+def behavior_set_origin(
+    context: Dict[str, Any],
+    azion_resources: AzionResource,
+    options: Dict[str, Any]
+    ) -> Tuple[Dict[str, Any], str]:
     """
     Handles origin settings dependencies for a behavior.
 
@@ -471,7 +506,11 @@ def behavior_set_origin(context: Dict[str, Any], azion_resources: AzionResource,
 
     return azion_behavior, origin_settings_ref
 
-def behavior_capture_match_groups(context: Dict[str, Any], azion_resources: AzionResource, options: Dict[str, Any], mapping: Dict[str, Any], behavior: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
+def behavior_capture_match_groups(
+    options: Dict[str, Any],
+    mapping: Dict[str, Any],
+    behavior: Dict[str, Any]
+    ) -> Tuple[Dict[str, Any], str]:
     """
     Handles capture match groups dependencies for a behavior.
 
@@ -511,8 +550,13 @@ def behavior_capture_match_groups(context: Dict[str, Any], azion_resources: Azio
 
     return azion_behavior, None
 
-
-def process_behaviors(azion_resources: AzionResource,behaviors: List[Dict[str, Any]], context: Dict[str, Any], rule_name: str, parent_rule_name: str = None) -> Tuple[List[Dict[str, Any]], Set[str]]:
+def process_behaviors(
+    azion_resources: AzionResource,
+    behaviors: List[Dict[str, Any]],
+    context: Dict[str, Any],
+    rule_name: str,
+    parent_rule_name: str = None
+    ) -> Tuple[List[Dict[str, Any]], Set[str]]:
     """
     Process and map Akamai behaviors to Azion-compatible behaviors.
 

@@ -23,7 +23,10 @@ def map_allow_behavior_to_azion(allow_behavior: str, ttl: int) -> Dict[str, Any]
         "adaptive_delivery_action": "ignore",
         "cache_by_query_string": "ignore",
         "cache_by_cookies": "ignore",
-        "enable_stale_cache": 'false'
+        "enable_stale_cache": "false",
+        "is_slice_configuration_enabled": "false",
+        "is_slice_edge_caching_enabled": "false",
+        "slice_configuration_range": 1024
     }
 
     if allow_behavior == "ALLOW":
@@ -100,7 +103,6 @@ def create_cache_setting(azion_resources: AzionResource, rules: List[Dict[str, A
             cache_attributes["enable_stale_cache"] = 'false'
     else:
         cache_attributes["enable_stale_cache"] = 'false'
-
 
     #depends_on
     depends_on = [f"azion_edge_application_main_setting.{main_setting_name}"]
