@@ -48,6 +48,7 @@ def create_rule_engine(
     # Extract behaviors and criteria
     behaviors = rule.get("behaviors", [])
     criteria = rule.get("criteria", [])
+    rule_condition = rule.get("criteriaMustSatisfy", "one")
 
     logging.info(
         f"[rules_engine] Found {len(behaviors)} behaviors and {len(criteria)} criteria for rule: '{rule_name}'"
@@ -62,7 +63,7 @@ def create_rule_engine(
             # Process behaviors and criteria
             azion_behaviors, depends_on_behaviors = process_behaviors(azion_resources, behaviors, context, rule_name)
             behaviors_names = [behavior.get("name") for behavior in behaviors]
-            azion_criteria = process_criteria(criteria, behaviors_names)
+            azion_criteria = process_criteria(criteria, behaviors_names, rule_condition)
 
             # Handling depends_on
             depends_on = [f"azion_edge_application_main_setting.{main_setting_name}"]
@@ -156,12 +157,12 @@ def assemble_request_rule(
     return resource
 
 def assemble_response_rule(
-    rule: Dict[str, Any],
-    rule_name: str,
-    main_setting_name: str,
-    azion_criteria: Dict[str, Any],
-    behaviors: List[Dict[str, Any]],
-    depends_on: List[str]
+        rule: Dict[str, Any],
+        rule_name: str,
+        main_setting_name: str,
+        azion_criteria: Dict[str, Any],
+        behaviors: List[Dict[str, Any]],
+        depends_on: List[str]
     ) -> Dict[str, Any]:
     """
     Create a rule engine resource from Akamai rule data.
@@ -261,7 +262,6 @@ def process_conditional_rule(rule: Dict[str, Any]) -> Dict[str, Any]:
             
     if azion_conditions:
         processed_rule["criteria"] = azion_conditions
-        
     return processed_rule
 
 def process_criteria_default(behaviors_names: List[str]) -> Dict[str, Any]:
@@ -274,7 +274,6 @@ def process_criteria_default(behaviors_names: List[str]) -> Dict[str, Any]:
         mapping = MAPPING.get("criteria", {}).get(behavior_name)
         
         if mapping:
-            
             entry = {
                 "name": mapping.get("name",behavior_name),
                 "variable": mapping.get("azion_condition"),
@@ -285,7 +284,6 @@ def process_criteria_default(behaviors_names: List[str]) -> Dict[str, Any]:
             }
             if mapping.get("azion_operator"):
                 entry["input_value"] = mapping.get("input_value")
-
             # Append to the correct phase
             if mapping.get("phase") == "response":
                 response_entries.append(entry)
@@ -302,13 +300,18 @@ def process_criteria_default(behaviors_names: List[str]) -> Dict[str, Any]:
         logging.info("No criteria found for response phase of the rule, using default criterias based on the behaviors")   
     return azion_criteria
 
-def process_criteria(criteria: List[Dict[str, Any]], behaviors_names: List[str]) -> List[Dict[str, Any]]:
+def process_criteria(
+        criteria: List[Dict[str, Any]],
+        behaviors_names: List[str],
+        rule_condition: str
+        ) -> List[Dict[str, Any]]:
     """
     Processes and maps Akamai criteria to Azion-compatible criteria.
 
     Parameters:
         criteria (List[Dict[str, Any]]): List of Akamai criteria.
         behaviors_names (List[str]): List of behavior names.
+        rule_condition (str): Condition to group criteria
 
     Returns:
         List[Dict[str, Any]]: List of Azion criteria grouped by phase.
@@ -316,32 +319,32 @@ def process_criteria(criteria: List[Dict[str, Any]], behaviors_names: List[str])
     azion_criteria = {}
     request_entries = []
     response_entries = []
-
-    if not criteria:
-        azion_criteria = process_criteria_default(behaviors_names)
-        return azion_criteria
-
-    # Map Akamai's criteriaMustSatisfy to Azion's conditional
-    criteria_must_satisfy = criteria[0].get("criteriaMustSatisfy", "one")
     conditional_map = {
         "all": "and",
         "any": "or",
         "one": "if"
     }
-    group_conditional = conditional_map.get(criteria_must_satisfy, "and")
+
+    if not criteria:
+        azion_criteria = process_criteria_default(behaviors_names)
+        return azion_criteria
 
     for index, criterion in enumerate(criteria):
+        logging.info(".::: ITERATING CRITERIA LIST :::.")
+        logging.info(criterion)
         name = criterion.get("name")
         options = criterion.get("options", {})
-
         if not name:
-            logging.warning(f"Criterion at index {index} is missing a name. Skipping.")
+            logging.warning(f"Criterion {criterion} at index {index} is missing a name. Skipping.")
             continue
 
         mapping = MAPPING.get("criteria", {}).get(name)
         if not mapping:
             logging.warning(f"No mapping found for criterion: {name}. Skipping.")
             continue
+        # Map Akamai's criteriaMustSatisfy to Azion's conditional
+        criteria_has_condition = criterion.get("criteriaMustSatisfy", "one")
+        group_conditional = conditional_map.get(criteria_has_condition, "one") if index == 0 else conditional_map.get(rule_condition, "and") 
 
         try:
             # Map operator
@@ -403,9 +406,9 @@ def process_criteria(criteria: List[Dict[str, Any]], behaviors_names: List[str])
     return azion_criteria
 
 def behavior_cache_setting(
-    context: Dict[str, Any],
-    azion_resources: AzionResource,
-    options: Dict[str, Any]
+        context: Dict[str, Any],
+        azion_resources: AzionResource,
+        options: Dict[str, Any]
     ) -> Tuple[Dict[str, Any], str]:
     """
     Handles cache settings dependencies for a behavior.
@@ -458,9 +461,9 @@ def behavior_cache_setting(
     return azion_behavior, cache_settings_ref
 
 def behavior_set_origin(
-    context: Dict[str, Any],
-    azion_resources: AzionResource,
-    options: Dict[str, Any]
+        context: Dict[str, Any],
+        azion_resources: AzionResource,
+        options: Dict[str, Any]
     ) -> Tuple[Dict[str, Any], str]:
     """
     Handles origin settings dependencies for a behavior.
@@ -507,9 +510,9 @@ def behavior_set_origin(
     return azion_behavior, origin_settings_ref
 
 def behavior_capture_match_groups(
-    options: Dict[str, Any],
-    mapping: Dict[str, Any],
-    behavior: Dict[str, Any]
+        options: Dict[str, Any],
+        mapping: Dict[str, Any],
+        behavior: Dict[str, Any]
     ) -> Tuple[Dict[str, Any], str]:
     """
     Handles capture match groups dependencies for a behavior.
@@ -540,7 +543,10 @@ def behavior_capture_match_groups(
     azion_behavior = {
         "name": mapping["azion_behavior"],
         "enabled": True,
-        "description": behavior.get("description", "Behavior capture_match_groups, variableName: " + options.get("variableName", "")),
+        "description": behavior.get(
+            "description", 
+            "Behavior capture_match_groups, variableName: " + options.get("variableName", "")
+        ),
         "target": {
             "captured_array": f'"{captured_array}"',
             "subject": f'{replace_variables(options.get("variableValue"))}',
@@ -551,11 +557,11 @@ def behavior_capture_match_groups(
     return azion_behavior, None
 
 def process_behaviors(
-    azion_resources: AzionResource,
-    behaviors: List[Dict[str, Any]],
-    context: Dict[str, Any],
-    rule_name: str,
-    parent_rule_name: str = None
+        azion_resources: AzionResource,
+        behaviors: List[Dict[str, Any]],
+        context: Dict[str, Any],
+        rule_name: str,
+        parent_rule_name: str = None
     ) -> Tuple[List[Dict[str, Any]], Set[str]]:
     """
     Process and map Akamai behaviors to Azion-compatible behaviors.
