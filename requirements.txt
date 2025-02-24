@@ -2,3 +2,5 @@
 lark==1.2.2
 python_hcl2==6.1.1
 setuptools==75.8.0
+# Python tools
+pylint==3.3.4
