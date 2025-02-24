@@ -330,8 +330,6 @@ def process_criteria(
         return azion_criteria
 
     for index, criterion in enumerate(criteria):
-        logging.info(".::: ITERATING CRITERIA LIST :::.")
-        logging.info(criterion)
         name = criterion.get("name")
         options = criterion.get("options", {})
         if not name:

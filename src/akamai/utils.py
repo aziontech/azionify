@@ -206,7 +206,6 @@ def replace_variables(input_string: str) -> str:
     # Return the modified string, or the original if no replacements were made
     return modified_string if modified_string != input_string else input_string
 
-
 def map_origin_type(akamai_origin_type: str) -> str:
     """
     Map Akamai originType to Azion origin_type.
