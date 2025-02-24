@@ -6,10 +6,79 @@ from io import StringIO
 logging.basicConfig(level=logging.INFO)
 
 
+def validate_cache_settings(cache_settings: dict) -> dict:
+    """
+    Validates and applies default values to cache settings.
+
+    Parameters:
+        cache_settings (dict): The input cache settings from Akamai configuration.
+
+    Returns:
+        dict: Validated and normalized cache settings for Azion configuration.
+    """
+    try:
+        # Extract and validate settings with defaults
+        browser_cache_settings = cache_settings.get("browser_cache_settings", "honor")
+        if browser_cache_settings not in ["honor", "override"]:
+            logging.warning(f"Invalid browser_cache_settings '{browser_cache_settings}', defaulting to 'honor'")
+            browser_cache_settings = "honor"
+
+        browser_cache_ttl = cache_settings.get("browser_cache_settings_maximum_ttl", 0)
+        if not (0 <= browser_cache_ttl <= 31536000):
+            logging.warning(
+                f"Invalid browser_cache_settings_maximum_ttl '{browser_cache_ttl}', defaulting to 0"
+            )
+            browser_cache_ttl = 0
+
+        cdn_cache_settings = cache_settings.get("cdn_cache_settings", "honor")
+        if cdn_cache_settings not in ["honor", "override"]:
+            logging.warning(f"Invalid cdn_cache_settings '{cdn_cache_settings}', defaulting to 'honor'")
+            cdn_cache_settings = "honor"
+
+        try:
+            cdn_cache_ttl = int(cache_settings.get("cdn_cache_settings_maximum_ttl", 60))
+        except (ValueError, TypeError):
+            logging.warning("Invalid cdn_cache_settings_maximum_ttl format, defaulting to 60")
+            cdn_cache_ttl = 60
+
+        if not (0 <= cdn_cache_ttl <= 31536000):
+            logging.warning(
+                f"Invalid cdn_cache_settings_maximum_ttl '{cdn_cache_ttl}', defaulting to 60"
+            )
+            cdn_cache_ttl = 60
+
+        enable_stale_cache = cache_settings.get("enable_stale_cache", "false").lower()
+        if enable_stale_cache not in ["true", "false"]:
+            logging.warning(
+                f"Invalid enable_stale_cache '{enable_stale_cache}', defaulting to false"
+            )
+            enable_stale_cache = "false"
+
+        # Return validated settings
+        return {
+            "browser_cache_settings": browser_cache_settings,
+            "browser_cache_settings_maximum_ttl": browser_cache_ttl,
+            "cdn_cache_settings": cdn_cache_settings,
+            "cdn_cache_settings_maximum_ttl": cdn_cache_ttl,
+            "enable_stale_cache": enable_stale_cache,
+            "cache_by_cookies": "ignore",
+            "cache_by_query_string": "ignore",
+            "adaptive_delivery_action": "ignore",
+            "is_slice_configuration_enabled": "false",
+            "is_slice_edge_caching_enabled": "false",
+            "slice_configuration_range": 1024
+        }
+
+    except Exception as e:
+        logging.error(f"Error validating cache settings: {e}")
+        raise
+
+
 def write_variable_block(f):
     """Writes the Terraform variable block for Azion API token."""
     write_indented(f, 'variable "azion_api_token" {', 0)
     write_indented(f, 'default     = null', 1)
+    write_indented(f, 'type        = string', 1)
     write_indented(f, 'description = "Azion API token"', 1)
     write_indented(f, '}', 0)
     write_indented(f, '', 0)
@@ -305,74 +374,6 @@ def write_rule_engine_block(f, resource):
         logging.info(f"Rule engine block written for {normalized_name}")
     except ValueError as e:
         logging.error(f"Error writing rule engine block: {str(e)}")
-
-
-def validate_cache_settings(cache_settings: dict) -> dict:
-    """
-    Validates and applies default values to cache settings.
-
-    Parameters:
-        cache_settings (dict): The input cache settings from Akamai configuration.
-
-    Returns:
-        dict: Validated and normalized cache settings for Azion configuration.
-    """
-    try:
-        # Extract and validate settings with defaults
-        browser_cache_settings = cache_settings.get("browser_cache_settings", "honor")
-        if browser_cache_settings not in ["honor", "override"]:
-            logging.warning(f"Invalid browser_cache_settings '{browser_cache_settings}', defaulting to 'honor'")
-            browser_cache_settings = "honor"
-
-        browser_cache_ttl = cache_settings.get("browser_cache_settings_maximum_ttl", 0)
-        if not (0 <= browser_cache_ttl <= 31536000):
-            logging.warning(
-                f"Invalid browser_cache_settings_maximum_ttl '{browser_cache_ttl}', defaulting to 0"
-            )
-            browser_cache_ttl = 0
-
-        cdn_cache_settings = cache_settings.get("cdn_cache_settings", "honor")
-        if cdn_cache_settings not in ["honor", "override"]:
-            logging.warning(f"Invalid cdn_cache_settings '{cdn_cache_settings}', defaulting to 'honor'")
-            cdn_cache_settings = "honor"
-
-        try:
-            cdn_cache_ttl = int(cache_settings.get("cdn_cache_settings_maximum_ttl", 60))
-        except (ValueError, TypeError):
-            logging.warning("Invalid cdn_cache_settings_maximum_ttl format, defaulting to 60")
-            cdn_cache_ttl = 60
-
-        if not (0 <= cdn_cache_ttl <= 31536000):
-            logging.warning(
-                f"Invalid cdn_cache_settings_maximum_ttl '{cdn_cache_ttl}', defaulting to 60"
-            )
-            cdn_cache_ttl = 60
-
-        enable_stale_cache = cache_settings.get("enable_stale_cache", "false").lower()
-        if enable_stale_cache not in ["true", "false"]:
-            logging.warning(
-                f"Invalid enable_stale_cache '{enable_stale_cache}', defaulting to false"
-            )
-            enable_stale_cache = "false"
-
-        # Return validated settings
-        return {
-            "browser_cache_settings": browser_cache_settings,
-            "browser_cache_settings_maximum_ttl": browser_cache_ttl,
-            "cdn_cache_settings": cdn_cache_settings,
-            "cdn_cache_settings_maximum_ttl": cdn_cache_ttl,
-            "enable_stale_cache": enable_stale_cache,
-            "cache_by_cookies": "ignore",
-            "cache_by_query_string": "ignore",
-            "adaptive_delivery_action": "ignore",
-            "is_slice_configuration_enabled": "false",
-            "is_slice_edge_caching_enabled": "false",
-            "slice_configuration_range": 1024
-        }
-
-    except Exception as e:
-        logging.error(f"Error validating cache settings: {e}")
-        raise
 
 
 def write_cache_setting_block(f, resource: dict):

@@ -14,6 +14,9 @@ class AzionResource:
         """
         self.name = name
 
+    def __str__(self):
+        return f"AzionResource(name={self.name}, attributes={self.azion_resources})"
+
     @classmethod
     def get_azion_resources(cls) -> List[Dict[str, Any]]:
         """
@@ -25,7 +28,11 @@ class AzionResource:
         return cls.azion_resources
 
     @classmethod
-    def query_azion_resource_by_type(cls, resource_type: str, name: Optional[str] = None) -> Tuple[int, Optional[Dict[str, Any]]]:
+    def query_azion_resource_by_type(
+        cls, 
+        resource_type: str,
+        name: Optional[str] = None
+    ) -> Tuple[int, Optional[Dict[str, Any]]]:
         """
         Query a list of Azion resources by the 'type' field. Return the first matching resource.
 
@@ -63,13 +70,15 @@ class AzionResource:
     @classmethod
     def query_azion_origin_by_address(cls, origin_address: str) -> Optional[Dict[str, Any]]:
         """
-        Query a list of Azion resource by origin resources by the 'origin_address' field. Return the first matching resource.
+        Query a list of Azion resource by origin resources by the 'origin_address' field. Return the
+        first matching resource.
 
         Parameters:
             origin_address (str): The value of the 'origin_address' field to search for.
 
         Returns:
-            Optional[Dict[str, Any]]: The first resource with the matching 'origin_address', or None if not found.
+            Optional[Dict[str, Any]]: The first resource with the matching 'origin_address', or None 
+            if not found.
         """
         origins = cls.query_all_azion_resource_by_type('azion_edge_application_origin')
         for _,origin in origins:
@@ -80,21 +89,6 @@ class AzionResource:
                     return origin
         return None
 
-    def __str__(self):
-        return f"AzionResource(name={self.name}, attributes={self.azion_resources})"
-
-    def len(self):
-        return len(AzionResource.azion_resources)
-
-    def extend(self, resources: List[Dict[str, Any]]):
-        """
-        Extend the resources list with new resources.
-
-        Parameters:
-            resources (List[Dict[str, Any]]): The list of resources to extend.
-        """
-        AzionResource.azion_resources.extend(resources)
-
     def append(self, resource: Optional[Dict[str, Any]]):
         """
         Append a new resource to the resources list.
@@ -104,3 +98,15 @@ class AzionResource:
         """
         if resource is not None:
             AzionResource.azion_resources.append(resource)
+    
+    def extend(self, resources: List[Dict[str, Any]]):
+        """
+        Extend the resources list with new resources.
+
+        Parameters:
+            resources (List[Dict[str, Any]]): The list of resources to extend.
+        """
+        AzionResource.azion_resources.extend(resources)
+
+    def len(self):
+        return len(AzionResource.azion_resources)

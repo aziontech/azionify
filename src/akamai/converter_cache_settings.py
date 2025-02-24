@@ -3,6 +3,7 @@ from typing import Dict, Any, List, Optional
 from azion_resources import AzionResource
 from utils import parse_ttl, sanitize_name
 
+
 def map_allow_behavior_to_azion(allow_behavior: str, ttl: int) -> Dict[str, Any]:
     """
     Maps the 'allowBehavior' behavior from Akamai to the Azion cache settings configuration.
