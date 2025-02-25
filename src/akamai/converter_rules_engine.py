@@ -523,7 +523,6 @@ def behavior_capture_match_groups(
     Returns:
         tuple: A tuple containing the Azion behavior and capture match groups reference.
     """
-
     azion_behavior = None
 
     required_fields = {
@@ -710,7 +709,7 @@ def process_behaviors(
 
         # Handle special behavior: capture_match_groups
         if mapping["azion_behavior"] == "capture_match_groups":
-            azion_behavior, _ = behavior_capture_match_groups(context, azion_resources, options, mapping, behavior)
+            azion_behavior, _ = behavior_capture_match_groups(options, mapping, behavior)
             if azion_behavior:
                 # Create a unique key to track this behavior
                 unique_key = behavior_key(azion_behavior)
