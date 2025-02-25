@@ -330,7 +330,7 @@ def get_input_hostname(values: List[str]) -> str:
         else:
             pattern = value.replace('.', r'\\.')
         patterns.append(pattern)
-    return r"\^(%s)(\\?.*)?$" % "|".join(patterns)
+    return r"\\^(%s)(\\?.*)?$" % "|".join(patterns)
 
 
 def get_redirect_target(options):
