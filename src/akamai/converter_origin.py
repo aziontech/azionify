@@ -1,4 +1,5 @@
 import logging
+import random
 from typing import Dict, Any, Optional
 from azion_resources import AzionResource
 from utils import sanitize_name
@@ -58,13 +59,15 @@ def create_origin(azion_resources: AzionResource, origin_attributes: Dict[str, A
             logging.warning(f"Hostname not properly set. Using placeholder: {hostname}")
 
         # Construct the origin resource
+        random_number = str(random.randint(1000, 9999))
+        name = sanitize_name(name +"_"+ host_header + "_" + random_number if name else origin_attributes.get("name", "Default Origin"))
         origin_resource = {
             "type": "azion_edge_application_origin",
-            "name": sanitize_name(name if name else origin_attributes.get("name", "Default Origin")),
+            "name": name,
             "attributes": {
                 "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
                 "origin": {
-                    "name": sanitize_name(name if name else origin_attributes.get("name", "Default Origin")),
+                    "name": name,
                     "origin_type": origin_type,
                     "addresses": addresses,
                     "origin_protocol_policy": origin_protocol_policy,
