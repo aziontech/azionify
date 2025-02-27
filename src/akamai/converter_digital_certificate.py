@@ -4,7 +4,10 @@ import logging
 from azion_resources import AzionResource
 
 
-def create_digital_certificate(azion_resources: AzionResource, custom_certificates: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+def create_digital_certificate(
+        azion_resources: AzionResource,
+        custom_certificates: List[Dict[str, Any]]
+    ) -> Optional[Dict[str, Any]]:
     """
     Creates a Digital Certificate resource in Azion based on Akamai customCertificates.
 

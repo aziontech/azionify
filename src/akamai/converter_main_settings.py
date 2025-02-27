@@ -48,7 +48,11 @@ def validate_and_apply_defaults(attributes: Dict[str, Any], defaults: Dict[str, 
 
     return validated
 
-def create_main_setting(azion_resources: AzionResource, attributes: Dict[str, Any], main_setting_name: str) -> Optional[Dict[str, Any]]:
+def create_main_setting(
+        azion_resources: AzionResource,
+        attributes: Dict[str, Any],
+        main_setting_name: str
+    ) -> Optional[Dict[str, Any]]:
     """
     Creates the main application setting resource for Azion.
 

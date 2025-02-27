@@ -45,7 +45,12 @@ def map_allow_behavior_to_azion(allow_behavior: str, ttl: int) -> Dict[str, Any]
     return cache_settings
 
 
-def create_cache_setting(azion_resources: AzionResource, rules: List[Dict[str, Any]], main_setting_name: str, cache_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
+def create_cache_setting(
+        azion_resources: AzionResource,
+        rules: List[Dict[str, Any]],
+        main_setting_name: str,
+        cache_name: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
     """
     Creates a single Azion cache setting resource.
 

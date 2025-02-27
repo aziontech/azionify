@@ -117,10 +117,10 @@ def write_main_setting_block(f, resource):
         resource (dict): Resource containing the main setting.
     """
     try: 
-        attributes = resource.get("attributes", None)
+        attributes = resource.get("attributes")
         edge_application = attributes.get("edge_application")
 
-        name = edge_application.get("name", None)
+        name = edge_application.get("name")
         if not name:
             name = "Unnamed Edge Application"
         normalized_name = sanitize_name(name)
@@ -471,7 +471,7 @@ def write_azion_edge_application_edge_functions_instance_block(f, attributes: di
     results = attributes.get("results", {})
     name = results.get("name")
     edge_function_id = results.get("edge_function_id")
-    args = results.get("args", None)
+    args = results.get("args")
 
     # Validate edge_functions in main_setting
     if not attributes.get("edge_functions", False):

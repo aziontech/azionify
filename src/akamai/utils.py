@@ -332,7 +332,6 @@ def get_input_hostname(values: List[str]) -> str:
         patterns.append(pattern)
     return r"^(%s)$" % "|".join(patterns)
 
-
 def get_redirect_target(options):
     """
     Generate redirect target based on Akamai redirect behavior options.
