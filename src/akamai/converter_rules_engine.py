@@ -535,7 +535,7 @@ def behavior_capture_match_groups(
         logging.warning(f"Behavior '{mapping['azion_behavior']}' is missing required fields: {missing_fields}")
         return azion_behavior, None
 
-    regex_value = replace_variables(options.get('regex')).replace('/', r'\\/').replace('.', r'\\.')
+    regex_value = replace_variables(options.get('regex')).replace('/', r'\/').replace('.', r'\\.')
     random_number = random.randint(1000, 9999)
     captured_array = options.get("variableName",f"var{random_number}")[:10]
     azion_behavior = {
