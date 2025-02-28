@@ -144,13 +144,15 @@ def assemble_request_rule(
     """
     phase = "request" if rule_name != "default" else "default"
     rule_description = rule.get("comments", "").replace("\n", " ").replace("\r", " ").replace("\"", "'")
+    random_number = str(random.randint(1000, 9999))
+    unique_rule_name = sanitize_name(rule_name) + "_" + random_number
     resource = {
         "type": "azion_edge_application_rule_engine",
-        "name": sanitize_name(rule_name), 
+        "name": unique_rule_name, 
         "attributes": {
             "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
             "results": {
-                "name": "Default Rule" if phase == "default" else sanitize_name(rule_name),
+                "name": "Default Rule" if phase == "default" else unique_rule_name,
                 "description": rule_description,
                 "phase": phase,
                 "behaviors": request_behaviors
@@ -190,6 +192,8 @@ def assemble_response_rule(
     
     behavior_names = "_".join(sorted(set(b.get("name", "") for b in behaviors)))
     name = sanitize_name(f"{rule_name}_{behavior_names}")
+    random_number = str(random.randint(1000, 9999))
+    unique_rule_name = sanitize_name(name) + "_" + random_number
 
     # Find criteria for the behavior
     criterias = azion_criteria.get("response", {}).get("entries")
@@ -209,11 +213,11 @@ def assemble_response_rule(
     rule_description = rule.get("comments", "").replace("\n", " ").replace("\r", " ").replace("\"", "'")
     resource = {
         "type": "azion_edge_application_rule_engine",
-        "name": name,
+        "name": unique_rule_name,
         "attributes": {
             "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
             "results": {
-                "name": name,
+                "name": unique_rule_name,
                 "description": rule_description,
                 "phase": "response",
                 "behaviors": behaviors

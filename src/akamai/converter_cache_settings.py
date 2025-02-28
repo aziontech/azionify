@@ -114,9 +114,7 @@ def create_cache_setting(
     #depends_on
     depends_on = [f"azion_edge_application_main_setting.{main_setting_name}"]
     _, origin = azion_resources.query_azion_resource_by_type("azion_edge_application_origin", name)
-    if not origin:
-        depends_on.append("azion_edge_application_origin.default") #fallback to default origin
-    else:
+    if origin:
         depends_on.append(f"azion_edge_application_origin.{name}")
 
     # Construct the cache setting resource
