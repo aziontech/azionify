@@ -75,7 +75,7 @@ def validate_cache_settings(cache_settings: dict) -> dict:
         raise
 
 
-def write_variable_block(f):
+def write_variable_block(f) -> None:
     """
     Writes the Terraform variable block for Azion API token.
 
@@ -90,7 +90,7 @@ def write_variable_block(f):
     write_indented(f, '', 0)
 
 
-def write_provider_block(f):
+def write_provider_block(f) -> None:
     """
     Writes the Terraform provider block for Azion.
 
@@ -103,7 +103,7 @@ def write_provider_block(f):
     write_indented(f, '', 0)
 
 
-def write_depends_on(f, attributes: Dict[str, Any]):
+def write_depends_on(f, attributes: Dict[str, Any]) -> None:
     """
     Writes the depends_on block for a Terraform resource.
 
@@ -281,7 +281,7 @@ def write_domain_block(f, resource: Dict[str, Any]) -> None:
         logging.error(f"Unexpected error in write_domain_block: {e}")
 
 
-def write_rule_engine_block(f, resource):
+def write_rule_engine_block(f, resource: Dict[str, Any]) -> None:
     """
     Write a rule engine block to the Terraform file.
 
