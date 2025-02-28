@@ -42,7 +42,7 @@ def extract_hostname(behaviors: List[dict]) -> str:
         logging.error(f"Error extracting hostname: {e}")
         return "placeholder.example.com"
 
-def log_conversion_summary(resources: List[dict]):
+def log_conversion_summary(resources: List[dict]) -> None:
     """
     Logs a summary of the resources generated during conversion.
 
@@ -56,7 +56,7 @@ def log_conversion_summary(resources: List[dict]):
     if resource_types:
         logging.info(f"Generated resources: {', '.join(set(resource_types))}")
 
-def write_indented(f, content, indent_level=0, indent_size=4):
+def write_indented(f, content, indent_level=0, indent_size=4) -> None:
     """
     Writes indented content to a file.
 

@@ -183,7 +183,7 @@ def assemble_response_rule(
     name = sanitize_name(f"{rule_name}_{behavior_names}")
 
     # Find criteria for the behavior
-    criterias = azion_criteria.get("response", {}).get("entries", None)
+    criterias = azion_criteria.get("response", {}).get("entries")
     selected_criteria = None
     if criterias:
         if len(criterias) == 1:
