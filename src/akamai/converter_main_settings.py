@@ -57,11 +57,12 @@ def create_main_setting(
     Creates the main application setting resource for Azion.
 
     Parameters:
-        attributes (dict): Attributes from Akamai configuration.
+        azion_resources (AzionResource): The Azion resource container.
+        attributes (Dict[str, Any]): Attributes from Akamai configuration.
         main_setting_name (str): Name of the main Azion edge application resource.
 
     Returns:
-        dict: Azion-compatible main_setting resource.
+        Optional[Dict[str, Any]]: Azion-compatible main_setting resource.
     """
     defaults = {
         "name": "Default Edge Application",

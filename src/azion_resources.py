@@ -81,7 +81,7 @@ class AzionResource:
             if not found.
         """
         origins = cls.query_all_azion_resource_by_type('azion_edge_application_origin')
-        for _,origin in origins:
+        for _, origin in origins:
             origin_attributes = origin.get("attributes", {})
             origin_addresses = origin_attributes.get("origin", {}).get("addresses", [])
             for origin_addr in origin_addresses:
@@ -89,7 +89,7 @@ class AzionResource:
                     return origin
         return None
 
-    def append(self, resource: Optional[Dict[str, Any]]):
+    def append(self, resource: Optional[Dict[str, Any]]) -> None:
         """
         Append a new resource to the resources list.
 
@@ -99,7 +99,7 @@ class AzionResource:
         if resource is not None:
             AzionResource.azion_resources.append(resource)
     
-    def extend(self, resources: List[Dict[str, Any]]):
+    def extend(self, resources: List[Dict[str, Any]]) -> None:
         """
         Extend the resources list with new resources.
 
@@ -108,5 +108,5 @@ class AzionResource:
         """
         AzionResource.azion_resources.extend(resources)
 
-    def len(self):
+    def len(self) -> int:
         return len(AzionResource.azion_resources)

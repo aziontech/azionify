@@ -12,11 +12,12 @@ def create_domain(
     Creates the Azion domain resource from Akamai attributes.
 
     Parameters:
-        attributes (dict): Attributes from Akamai configuration.
+        azion_resources (AzionResource): The Azion resource container.
+        attributes (Dict[str, Any]): Attributes from Akamai configuration.
         main_setting_name (str): The main setting name for Azion edge application.
 
     Returns:
-        dict: Azion-compatible domain resource.
+        Optional[Dict[str, Any]]: Azion-compatible domain resource.
     """
     try:
         logging.info("Processing domains.")

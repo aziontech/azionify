@@ -7,6 +7,12 @@ from akamai.utils import extract_edge_hostname, get_main_setting_name, find_orig
 def generate_azion_config(akamai_config: dict) -> dict:
     """
     Converts Akamai configuration to Azion-compatible configuration.
+
+    Args:
+        akamai_config (dict): The Akamai configuration to convert.
+
+    Returns:
+        dict: The Azion-compatible configuration.
     """
     azion_resources = AzionResource("azion_resources")
     try:
@@ -51,6 +57,14 @@ def generate_azion_config(akamai_config: dict) -> dict:
     return {"resources": azion_resources.get_azion_resources()}
 
 def akamai_converter(config: dict) -> dict:
-    """Process Akamai configuration and return Azion-compatible configuration."""
+    """
+    Process Akamai configuration and return Azion-compatible configuration.
+
+    Args:
+        config (dict): The Akamai configuration to convert.
+
+    Returns:
+        dict: The Azion-compatible configuration.
+    """
     logging.info("Converting Akamai configuration.")
     return generate_azion_config(config)

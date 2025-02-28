@@ -87,7 +87,7 @@ def extract_edge_hostname(akamai_config: dict) -> Optional[str]:
     logging.warning("Edge hostname not found in Akamai configuration.")
     return None
 
-def find_origin_hostname(akamai_config):
+def find_origin_hostname(akamai_config: Dict[str, Any]) -> Optional[str]:
     """
     Extract the origin hostname from the Akamai property configuration.
     Handles cases where 'rules' is a JSON-encoded string and ensures robust handling of non-standard inputs.
@@ -332,7 +332,7 @@ def get_input_hostname(values: List[str]) -> str:
         patterns.append(pattern)
     return r"^(%s)$" % "|".join(patterns)
 
-def get_redirect_target(options):
+def get_redirect_target(options: Dict[str, Any]) -> str:
     """
     Generate redirect target based on Akamai redirect behavior options.
     Maps Akamai redirect variables to Azion compatible format.

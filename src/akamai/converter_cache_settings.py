@@ -55,12 +55,13 @@ def create_cache_setting(
     Creates a single Azion cache setting resource.
 
     Parameters:
+        azion_resources (AzionResource): The Azion resource container.
         rules (List[Dict[str, Any]]): List of rules extracted from Akamai configuration.
         main_setting_name (str): Name of the main Azion edge application resource.
         cache_name (Optional[str]): Name of the cache setting resource.
 
     Returns:
-        Dict[str, Any]: Azion-compatible cache setting resource.
+        Optional[Dict[str, Any]]: Azion-compatible cache setting resource.
     """
     # Extract and validate caching behavior
     caching_behavior = next((rule['options'] for rule in rules if rule.get("name") == "caching"), None)
