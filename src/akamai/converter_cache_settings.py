@@ -45,17 +45,23 @@ def map_allow_behavior_to_azion(allow_behavior: str, ttl: int) -> Dict[str, Any]
     return cache_settings
 
 
-def create_cache_setting(azion_resources: AzionResource, rules: List[Dict[str, Any]], main_setting_name: str, cache_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
+def create_cache_setting(
+        azion_resources: AzionResource,
+        rules: List[Dict[str, Any]],
+        main_setting_name: str,
+        cache_name: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
     """
     Creates a single Azion cache setting resource.
 
     Parameters:
+        azion_resources (AzionResource): The Azion resource container.
         rules (List[Dict[str, Any]]): List of rules extracted from Akamai configuration.
         main_setting_name (str): Name of the main Azion edge application resource.
         cache_name (Optional[str]): Name of the cache setting resource.
 
     Returns:
-        Dict[str, Any]: Azion-compatible cache setting resource.
+        Optional[Dict[str, Any]]: Azion-compatible cache setting resource.
     """
     # Extract and validate caching behavior
     caching_behavior = next((rule['options'] for rule in rules if rule.get("name") == "caching"), None)
@@ -108,9 +114,7 @@ def create_cache_setting(azion_resources: AzionResource, rules: List[Dict[str, A
     #depends_on
     depends_on = [f"azion_edge_application_main_setting.{main_setting_name}"]
     _, origin = azion_resources.query_azion_resource_by_type("azion_edge_application_origin", name)
-    if not origin:
-        depends_on.append("azion_edge_application_origin.default") #fallback to default origin
-    else:
+    if origin:
         depends_on.append(f"azion_edge_application_origin.{name}")
 
     # Construct the cache setting resource

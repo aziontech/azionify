@@ -3,22 +3,27 @@ import logging
 
 from azion_resources import AzionResource
 
-def create_domain(azion_resources: AzionResource, attributes: Dict[str, Any], main_setting_name: str) -> Optional[Dict[str, Any]]:
+def create_domain(
+        azion_resources: AzionResource,
+        attributes: Dict[str, Any],
+        main_setting_name: str
+    ) -> Optional[Dict[str, Any]]:
     """
     Creates the Azion domain resource from Akamai attributes.
 
     Parameters:
-        attributes (dict): Attributes from Akamai configuration.
+        azion_resources (AzionResource): The Azion resource container.
+        attributes (Dict[str, Any]): Attributes from Akamai configuration.
         main_setting_name (str): The main setting name for Azion edge application.
 
     Returns:
-        dict: Azion-compatible domain resource.
+        Optional[Dict[str, Any]]: Azion-compatible domain resource.
     """
     try:
         logging.info("Processing domains.")
 
         # Extract and validate 'hostnames'
-        hostnames = attributes.get("hostnames", None)
+        hostnames = attributes.get("hostnames")
         if not hostnames:
             logging.warning("Hostname session not found in the configuration.")
             return None

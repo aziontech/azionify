@@ -75,7 +75,12 @@ MAPPING = {
         #"cloudletsOrigin": {"azion_condition": "$${upstream_addr}", "azion_operator": "matches"},
         
         # Response Phase Variables
-        "responseHeader": {"azion_condition": "$${sent_http_header}", "azion_operator": "matches", "phase": "response", "name": "filter_response_header"},
+        "responseHeader": {
+            "azion_condition": "$${sent_http_header}",
+            "azion_operator": "matches",
+            "phase": "response",
+            "name": "filter_response_header"
+        },
         "statusCode": {"azion_condition": "$${status}", "azion_operator": "matches", "phase": "response"},
         "upstreamAddress": {"azion_condition": "$${upstream_addr}", "azion_operator": "matches", "phase": "response"},
         "upstreamCookie": {"azion_condition": "$${upstream_cookie_name}", "azion_operator": "matches", "phase": "response"},
@@ -128,9 +133,22 @@ MAPPING = {
         #},
 
         # Cookies
-        "modifyOutgoingResponseCookie": {"azion_behavior": "set_cookie", "target": {"name": "cookie_name", "value": "cookie_value"}, "phase": "response", "akamai_behavior": "modifyOutgoingResponseCookie"},
-        "modifyIncomingRequestCookie": {"azion_behavior": "add_request_cookie", "target": {"name": "cookie_name", "value": "cookie_value"}},
-        "removeResponseCookie": {"azion_behavior": "filter_response_cookie", "target": "cookie_name", "phase": "response", "akamai_behavior": "removeResponseCookie"},
+        "modifyOutgoingResponseCookie": {
+            "azion_behavior": "set_cookie",
+            "target": {"name": "cookie_name", "value": "cookie_value"},
+            "phase": "response",
+            "akamai_behavior": "modifyOutgoingResponseCookie"
+        },
+        "modifyIncomingRequestCookie": {
+            "azion_behavior": "add_request_cookie",
+            "target": {"name": "cookie_name", "value": "cookie_value"}
+        },
+        "removeResponseCookie": {
+            "azion_behavior": "filter_response_cookie",
+            "target": "cookie_name",
+            "phase": "response",
+            "akamai_behavior": "removeResponseCookie"
+        },
         "removeRequestCookie": {"azion_behavior": "filter_request_cookie", "target": "cookie_name"},
         "forwardCookies": {"azion_behavior": "forward_cookies"},
         "cookies": {
@@ -146,7 +164,12 @@ MAPPING = {
             "phase": "response",
             "akamai_behavior": "modifyOutgoingResponseHeader"
         },
-        "removeOutgoingResponseHeader": {"azion_behavior": "filter_response_header", "target": "header_name", "phase": "response", "akamai_behavior": "removeOutgoingResponseHeader"},
+        "removeOutgoingResponseHeader": {
+            "azion_behavior": "filter_response_header",
+            "target": "header_name",
+            "phase": "response",
+            "akamai_behavior": "removeOutgoingResponseHeader"
+        },
         "allowTransferEncoding": {
             "azion_behavior": lambda options: None if options.get("enabled", True) else "filter_request_header",
             "target": {
@@ -154,11 +177,17 @@ MAPPING = {
                 "target": "Transfer-Encoding"
             }
         },
-        "removeVary": {"azion_behavior": "filter_response_header","target": {"target": "Vary"}, "phase": "response", "akamai_behavior": "removeVary"},
+        "removeVary": {
+            "azion_behavior": "filter_response_header",
+            "target": {"target": "Vary"},
+            "phase": "response",
+            "akamai_behavior": "removeVary"
+        },
 
         # Redirects
         "redirect": {
-            "azion_behavior": lambda options: "redirect_http_to_https" if options.get("destinationHostname") == "SAME_AS_REQUEST" else ("redirect_http_to_https" if options.get("responseCode") not in [301, 302] else f"redirect_to_{options.get('responseCode')}"),
+            "azion_behavior": 
+                lambda options: "redirect_http_to_https" if options.get("destinationHostname") == "SAME_AS_REQUEST" else ("redirect_http_to_https" if options.get("responseCode") not in [301, 302] else f"redirect_to_{options.get('responseCode')}"),
              "target": {
                 "target": get_redirect_target
              },

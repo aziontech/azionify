@@ -4,15 +4,19 @@ import logging
 from azion_resources import AzionResource
 
 
-def create_digital_certificate(azion_resources: AzionResource, custom_certificates: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+def create_digital_certificate(
+        azion_resources: AzionResource,
+        custom_certificates: List[Dict[str, Any]]
+    ) -> Optional[Dict[str, Any]]:
     """
     Creates a Digital Certificate resource in Azion based on Akamai customCertificates.
 
     Parameters:
-        custom_certificates (list): List of Akamai custom certificates.
+        azion_resources (AzionResource): The Azion resource container.
+        custom_certificates (List[Dict[str, Any]]): List of Akamai custom certificates.
 
     Returns:
-        str: The reference ID of the created Azion Digital Certificate resource.
+        Optional[Dict[str, Any]]: The reference ID of the created Azion Digital Certificate resource.
     """
     if not custom_certificates:
         logging.warning("No custom certificates provided. Skipping certificate creation.")

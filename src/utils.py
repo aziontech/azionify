@@ -10,6 +10,40 @@ logging.basicConfig(level=logging.INFO)
 _TRUE_PATTERN = re.compile(r'\bTrue\b')
 _FALSE_PATTERN = re.compile(r'\bFalse\b')
 _NONE_PATTERN = re.compile(r'\bNone\b')
+SPECIAL_CHARS = {
+    '.': '_',
+    '/': '_',
+    '\\': '_',
+    '-': '_',
+    ' ': '_',
+    ':': '_',
+    ',': '_',
+    ';': '_',
+    '(': '_',
+    ')': '_',
+    '[': '_',
+    ']': '_',
+    '{': '_',
+    '}': '_',
+    '|': '_',
+    '&': '_and_',
+    '+': '_plus_',
+    '=': '_equals_',
+    '*': '_star_',
+    '@': '_at_',
+    '#': '_hash_',
+    '$': '_dollar_',
+    '%': '_percent_',
+    '!': '_',
+    '?': '_',
+    '"': '_',
+    "'": '_',
+    '`': '_',
+    '^': '_',
+    '~': '_',
+    '<': '_',
+    '>': '_',
+}
 
 def format_depends_on(depends_on: List[str]) -> str:
     """
@@ -42,7 +76,7 @@ def extract_hostname(behaviors: List[dict]) -> str:
         logging.error(f"Error extracting hostname: {e}")
         return "placeholder.example.com"
 
-def log_conversion_summary(resources: List[dict]):
+def log_conversion_summary(resources: List[dict]) -> None:
     """
     Logs a summary of the resources generated during conversion.
 
@@ -56,7 +90,7 @@ def log_conversion_summary(resources: List[dict]):
     if resource_types:
         logging.info(f"Generated resources: {', '.join(set(resource_types))}")
 
-def write_indented(f, content, indent_level=0, indent_size=4):
+def write_indented(f: Any, content: str, indent_level: int = 0, indent_size: int = 4) -> None:
     """
     Writes indented content to a file.
 
@@ -69,7 +103,7 @@ def write_indented(f, content, indent_level=0, indent_size=4):
     indentation = " " * (indent_level * indent_size)
     f.write(indentation + content + "\n")
 
-def write_list_items(f, items, indent_level=2):
+def write_list_items(f: Any, items: List[Any], indent_level: int = 2) -> None:
     """
     Writes a list of items in Terraform format, ensuring no trailing comma.
 
@@ -81,8 +115,8 @@ def write_list_items(f, items, indent_level=2):
     if not isinstance(items, list) or not items:
         raise ValueError("items must be a non-empty list")
 
-    for idx, item in enumerate(items):
-        comma = "," if idx < len(items) - 1 else ""  # Add a comma only if not the last item
+    for index, item in enumerate(items):
+        comma = "," if index < len(items) - 1 else ""  # Add a comma only if not the last item
         write_indented(f, f"{item}{comma}", indent_level)
 
 def sanitize_name(name: str) -> str:
@@ -110,42 +144,7 @@ def sanitize_name(name: str) -> str:
     sanitized = name.lower()
     
     # Step 2: Replace common special characters and punctuation
-    special_chars = {
-        '.': '_',
-        '/': '_',
-        '\\': '_',
-        '-': '_',
-        ' ': '_',
-        ':': '_',
-        ',': '_',
-        ';': '_',
-        '(': '_',
-        ')': '_',
-        '[': '_',
-        ']': '_',
-        '{': '_',
-        '}': '_',
-        '|': '_',
-        '&': '_and_',
-        '+': '_plus_',
-        '=': '_equals_',
-        '*': '_star_',
-        '@': '_at_',
-        '#': '_hash_',
-        '$': '_dollar_',
-        '%': '_percent_',
-        '!': '_',
-        '?': '_',
-        '"': '_',
-        "'": '_',
-        '`': '_',
-        '^': '_',
-        '~': '_',
-        '<': '_',
-        '>': '_',
-    }
-    
-    for char, replacement in special_chars.items():
+    for char, replacement in SPECIAL_CHARS.items():
         sanitized = sanitized.replace(char, replacement)
     
     # Step 3: Handle non-ASCII characters (like accented characters)
@@ -241,7 +240,7 @@ def clean_and_parse_json(json_string: str) -> Optional[Any]:
         logging.error(f"Error parsing content: {str(e)}")
         return None
 
-def parse_ttl(ttl_str):
+def parse_ttl(ttl_str: str) -> int:
     """
     Converts a time-to-live (TTL) string into seconds.
 

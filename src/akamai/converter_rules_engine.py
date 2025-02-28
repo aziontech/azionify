@@ -8,17 +8,25 @@ from akamai.utils import (
     map_origin_type,
     replace_variables,
     map_operator,
+    map_variable,
     behavior_key
 )
 from utils import sanitize_name
 
-default_criteria = {
+DEFAULT_CRITERIA = {
     "name": "default",
     "variable": "$${uri}",
     "operator": "starts_with",
     "conditional": "if",
     "input_value": "/"
 }
+CONDITIONAL_MAP = {
+    "all": "and",
+    "any": "or",
+    "one": "if"
+}
+BEHAVIOR_CACHE_PHASE = ["NO_STORE", "NO_CACHE"]
+
 
 def create_rule_engine(
         azion_resources: AzionResource,
@@ -31,12 +39,12 @@ def create_rule_engine(
 
     Parameters:
         azion_resources (AzionResource): Azion resource container
-        rule (dict): Akamai rule data
-        context (dict): Context variables
+        rule (Dict[str, Any]): Akamai rule data
+        context (Dict[str, Any]): Context variables
         name (str): Rule name
 
     Returns:
-        dict: Azion rule engine resource
+        List[Dict[str, Any]]: Azion rule engine resource
     """
     resources = []
     rule_name = name if name else rule.get("name", "Unnamed Rule")
@@ -124,25 +132,28 @@ def assemble_request_rule(
     Create a rule engine resource from Akamai rule data.
 
     Parameters:
-    rule (Dict[str, Any]): Akamai rule data.
-    rule_name (str): Name of the rule.
-    main_setting_name (str): Name of the main setting.
-    azion_criteria (Dict[str, Any]): Criteria to be used in the rule.
-    request_behaviors (List[Dict[str, Any]]): List of behaviors to be applied in the rule.
-    depends_on (List[str]): List of dependencies for the rule.
+        rule (Dict[str, Any]): Akamai rule data.
+        rule_name (str): Name of the rule.
+        main_setting_name (str): Name of the main setting.
+        azion_criteria (Dict[str, Any]): Criteria to be used in the rule.
+        request_behaviors (List[Dict[str, Any]]): List of behaviors to be applied in the rule.
+        depends_on (List[str]): List of dependencies for the rule.
 
     Returns:
-    Dict[str, Any]: Rule engine resource.
+        Dict[str, Any]: Rule engine resource.
     """
     phase = "request" if rule_name != "default" else "default"
+    rule_description = rule.get("comments", "").replace("\n", " ").replace("\r", " ").replace("\"", "'")
+    random_number = str(random.randint(1000, 9999))
+    unique_rule_name = sanitize_name(rule_name) + "_" + random_number
     resource = {
         "type": "azion_edge_application_rule_engine",
-        "name": sanitize_name(rule_name), 
+        "name": unique_rule_name, 
         "attributes": {
             "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
             "results": {
-                "name": "Default Rule" if phase == "default" else sanitize_name(rule_name),
-                "description": rule.get("comments", ""),
+                "name": "Default Rule" if phase == "default" else unique_rule_name,
+                "description": rule_description,
                 "phase": phase,
                 "behaviors": request_behaviors
             },
@@ -168,22 +179,25 @@ def assemble_response_rule(
     Create a rule engine resource from Akamai rule data.
 
     Parameters:
-    rule (Dict[str, Any]): Akamai rule data.
-    rule_name (str): Name of the rule.
-    main_setting_name (str): Name of the main setting.
-    azion_criteria (Dict[str, Any]): Criteria to be used in the rule.
-    response_behaviors (List[Dict[str, Any]]): List of behaviors to be applied in the rule.
-    depends_on (List[str]): List of dependencies for the rule.
+        rule (Dict[str, Any]): Akamai rule data.
+        rule_name (str): Name of the rule.
+        main_setting_name (str): Name of the main setting.
+        azion_criteria (Dict[str, Any]): Criteria to be used in the rule.
+        behaviors (List[Dict[str, Any]]): List of behaviors to be applied in the rule.
+        depends_on (List[str]): List of dependencies for the rule.
 
     Returns:
-    Dict[str, Any]: Rule engine resource.
+        Dict[str, Any]: Rule engine resource.
     """
     
     behavior_names = "_".join(sorted(set(b.get("name", "") for b in behaviors)))
     name = sanitize_name(f"{rule_name}_{behavior_names}")
+    random_number = str(random.randint(1000, 9999))
+    unique_rule_name = sanitize_name(name) + "_" + random_number
 
     # Find criteria for the behavior
-    criterias = azion_criteria.get("response",{}).get("entries",None)
+    criterias = azion_criteria.get("response", {}).get("entries")
+    selected_criteria = None
     if criterias:
         if len(criterias) == 1:
             selected_criteria = azion_criteria.get("response")
@@ -195,15 +209,16 @@ def assemble_response_rule(
                         break
     else:
         selected_criteria = azion_criteria.get("response_default")
-    
+
+    rule_description = rule.get("comments", "").replace("\n", " ").replace("\r", " ").replace("\"", "'")
     resource = {
         "type": "azion_edge_application_rule_engine",
-        "name": name,
+        "name": unique_rule_name,
         "attributes": {
             "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
             "results": {
-                "name": name,
-                "description": rule.get("comments", ""),
+                "name": unique_rule_name,
+                "description": rule_description,
                 "phase": "response",
                 "behaviors": behaviors
             },
@@ -221,10 +236,10 @@ def process_conditional_rule(rule: Dict[str, Any]) -> Dict[str, Any]:
     Process rules with conditions and create Azion-compatible conditions.
     
     Parameters:
-        rule (dict): The rule to process.
+        rule (Dict[str, Any]): The rule to process.
     
     Returns:
-        dict: Processed rule with Azion-compatible conditions.
+        Dict[str, Any]: Processed rule with Azion-compatible conditions.
     """
     processed_rule = rule.copy()
     conditions = rule.get("criteria", [])
@@ -265,6 +280,16 @@ def process_conditional_rule(rule: Dict[str, Any]) -> Dict[str, Any]:
     return processed_rule
 
 def process_criteria_default(behaviors_names: List[str]) -> Dict[str, Any]:
+    """
+    Process default criteria for when no criteria is defined.
+
+    Parameters:
+        behaviors_names (List[str]): List of behavior names.
+
+    Returns:
+        Dict[str, Any]: Processed criteria.
+    """
+
     azion_criteria = {}
     request_entries = []
     response_entries = []
@@ -275,12 +300,12 @@ def process_criteria_default(behaviors_names: List[str]) -> Dict[str, Any]:
         
         if mapping:
             entry = {
-                "name": mapping.get("name",behavior_name),
+                "name": mapping.get("name", behavior_name),
                 "variable": mapping.get("azion_condition"),
                 "operator": mapping.get("azion_operator"),
                 "conditional": mapping.get("conditional"),
-                "phase": mapping.get("phase","request"),
-                "akamai_behavior": mapping.get("akamai_behavior",""),
+                "phase": mapping.get("phase", "request"),
+                "akamai_behavior": mapping.get("akamai_behavior", ""),
             }
             if mapping.get("azion_operator"):
                 entry["input_value"] = mapping.get("input_value")
@@ -290,8 +315,8 @@ def process_criteria_default(behaviors_names: List[str]) -> Dict[str, Any]:
             else:
                 request_entries.append(entry)
 
-    azion_criteria["request_default"] = {"entries":[default_criteria]}
-    azion_criteria["response_default"] = {"entries":[default_criteria]}
+    azion_criteria["request_default"] = {"entries":[DEFAULT_CRITERIA]}
+    azion_criteria["response_default"] = {"entries":[DEFAULT_CRITERIA]}
     if len(request_entries) > 0:
         azion_criteria["request"] = {"entries": request_entries}
         logging.info("No criteria found for request phase of the rule, using default criterias based on the behaviors")
@@ -304,7 +329,7 @@ def process_criteria(
         criteria: List[Dict[str, Any]],
         behaviors_names: List[str],
         rule_condition: str
-        ) -> List[Dict[str, Any]]:
+    ) -> List[Dict[str, Any]]:
     """
     Processes and maps Akamai criteria to Azion-compatible criteria.
 
@@ -319,11 +344,6 @@ def process_criteria(
     azion_criteria = {}
     request_entries = []
     response_entries = []
-    conditional_map = {
-        "all": "and",
-        "any": "or",
-        "one": "if"
-    }
 
     if not criteria:
         azion_criteria = process_criteria_default(behaviors_names)
@@ -342,7 +362,7 @@ def process_criteria(
             continue
         # Map Akamai's criteriaMustSatisfy to Azion's conditional
         criteria_has_condition = criterion.get("criteriaMustSatisfy", "one")
-        group_conditional = conditional_map.get(criteria_has_condition, "one") if index == 0 else conditional_map.get(rule_condition, "and") 
+        group_conditional = CONDITIONAL_MAP.get(criteria_has_condition, "one") if index == 0 else CONDITIONAL_MAP.get(rule_condition, "and") 
 
         try:
             # Map operator
@@ -350,7 +370,7 @@ def process_criteria(
             if callable(mapping.get("azion_operator")):
                 azion_operator = mapping["azion_operator"](options)
             else:
-                azion_operator = mapping.get("azion_operator", None)
+                azion_operator = mapping.get("azion_operator")
             if azion_operator is None:
                 azion_operator = map_operator(akamai_operator)
 
@@ -378,7 +398,7 @@ def process_criteria(
                 "akamai_behavior": mapping.get("akamai_behavior",""),
             }
             if input_value is not None:
-                entry["input_value"] = input_value
+                entry["input_value"] = input_value.replace("\r", "")
 
             # Append to the correct phase
             if mapping.get("phase") == "response":
@@ -412,32 +432,32 @@ def behavior_cache_setting(
     Handles cache settings dependencies for a behavior.
 
     Parameters:
-        context (dict): The context dictionary containing rule information.
+        context (Dict[str, Any]): The context dictionary containing rule information.
         azion_resources (AzionResource): The Azion resource container.
-        options (dict): The options dictionary containing cache settings information.
+        options (Dict[str, Any]): The options dictionary containing cache settings information.
 
     Returns:
-        tuple: A tuple containing the Azion behavior and cache settings reference.
+        Tuple[Dict[str, Any], str]: A tuple containing the Azion behavior and cache settings reference.
     """
 
     azion_behavior = None
     cache_settings_ref = None
 
-    parent_rule_name = context.get("parent_rule_name", None)
-    rule_name = context.get("rule_name", None)
+    parent_rule_name = context.get("parent_rule_name")
+    rule_name = context.get("rule_name")
 
     behavior = options.get("behavior", "").upper()
-    if behavior in ["NO_STORE", "NO_CACHE"]:
+    if behavior in BEHAVIOR_CACHE_PHASE:
         azion_behavior = {
-                "name": "bypass_cache_phase",
-                "enabled": True,
-                "target": {},
-                "phase": "request"
-            }
+            "name": "bypass_cache_phase",
+            "enabled": True,
+            "target": {},
+            "phase": "request"
+        }
         return azion_behavior, None
     else: 
         # Handle cache settings dependencies
-        cache_setttings = context.get("cache_setting", None)
+        cache_setttings = context.get("cache_setting")
         if cache_setttings is None:
             _, cache_setttings = azion_resources.query_azion_resource_by_type(
                 'azion_edge_application_cache_setting', sanitize_name(parent_rule_name))
@@ -467,22 +487,22 @@ def behavior_set_origin(
     Handles origin settings dependencies for a behavior.
 
     Parameters:
-        context (dict): The context dictionary containing rule information.
+        context (Dict[str, Any]): The context dictionary containing rule information.
         azion_resources (AzionResource): The Azion resource container.
-        options (dict): The options dictionary containing origin settings information.
+        options (Dict[str, Any]): The options dictionary containing origin settings information.
 
     Returns:
-        tuple: A tuple containing the Azion behavior and origin settings reference.
+        Tuple[Dict[str, Any], str]: A tuple containing the Azion behavior and origin settings reference.
     """
 
     azion_behavior = None
     origin_settings_ref = None
 
-    rule_name = context.get("rule_name", None)
+    rule_name = context.get("rule_name")
     parent_rule_name = context.get("parent_rule_name", "unamed")
 
     # Handle origin settings dependencies
-    origin_settings = context.get("origin", None)
+    origin_settings = context.get("origin")
     if origin_settings is None:
         _, origin_settings = azion_resources.query_azion_resource_by_type(
         "azion_edge_application_origin",
@@ -516,12 +536,12 @@ def behavior_capture_match_groups(
     Handles capture match groups dependencies for a behavior.
 
     Parameters:
-        context (dict): The context dictionary containing rule information.
-        azion_resources (AzionResource): The Azion resource container.
-        options (dict): The options dictionary containing capture match groups information.
+        options (Dict[str, Any]): The options dictionary containing capture match groups information.
+        mapping (Dict[str, Any]): The mapping dictionary containing the behavior information.
+        behavior (Dict[str, Any]): The behavior dictionary containing the behavior information.
 
     Returns:
-        tuple: A tuple containing the Azion behavior and capture match groups reference.
+        Tuple[Dict[str, Any], str]: A tuple containing the Azion behavior and capture match groups reference.
     """
     azion_behavior = None
 
@@ -534,9 +554,10 @@ def behavior_capture_match_groups(
         logging.warning(f"Behavior '{mapping['azion_behavior']}' is missing required fields: {missing_fields}")
         return azion_behavior, None
 
-    regex_value = replace_variables(options.get('regex')).replace('/', r'\\/').replace('.', r'\\.')
+    regex_value = replace_variables(options.get('regex')).replace('/', r'\/').replace('.', r'\\.')
     random_number = random.randint(1000, 9999)
     captured_array = options.get("variableName",f"var{random_number}")[:10]
+    subject = map_variable(options.get("variableValue"))
     azion_behavior = {
         "name": mapping["azion_behavior"],
         "enabled": True,
@@ -546,7 +567,7 @@ def behavior_capture_match_groups(
         ),
         "target": {
             "captured_array": f'"{captured_array}"',
-            "subject": f'{replace_variables(options.get("variableValue"))}',
+            "subject": f'{subject}',
             "regex": f"\"(.*)\\\\/{regex_value}\"",
         }
     }
@@ -564,10 +585,14 @@ def process_behaviors(
     Process and map Akamai behaviors to Azion-compatible behaviors.
 
     Parameters:
-        behaviors (list): List of Akamai behaviors.
+        azion_resources (AzionResource): The Azion resource container.
+        behaviors (List[Dict[str, Any]]): List of Akamai behaviors.
+        context (Dict[str, Any]): The context dictionary containing rule information.
+        rule_name (str): The name of the rule.
+        parent_rule_name (str): The name of the parent rule.
 
     Returns:
-        tuple: Tuple containing a list of Azion-compatible behaviors and a set of dependencies.
+        Tuple[List[Dict[str, Any]], Set[str]]: A tuple containing a list of Azion-compatible behaviors and a set of dependencies.
     """
     if not behaviors:
         return [], set()
@@ -745,7 +770,9 @@ def process_behaviors(
                         else:
                             target[target_key] = f'"{option_key}"'
                     except ValueError as e:
-                        logging.error(f"[rules_engine][process_behaviors] Error processing target for key '{target_key}' in behavior '{behavior_name}': {e}")
+                        logging.error(
+                            f"[rules_engine][process_behaviors] Error processing target for key '{target_key}' in behavior '{behavior_name}': {e}"
+                        )
             elif isinstance(mapping["target"], str):
                 try:
                     value = options.get(mapping["target"])

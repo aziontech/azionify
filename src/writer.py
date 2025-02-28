@@ -5,6 +5,7 @@ from io import StringIO
 
 logging.basicConfig(level=logging.INFO)
 
+ALLOWED_CACHE_SETTINGS = ["honor", "override"]
 
 def validate_cache_settings(cache_settings: dict) -> dict:
     """
@@ -19,7 +20,7 @@ def validate_cache_settings(cache_settings: dict) -> dict:
     try:
         # Extract and validate settings with defaults
         browser_cache_settings = cache_settings.get("browser_cache_settings", "honor")
-        if browser_cache_settings not in ["honor", "override"]:
+        if browser_cache_settings not in ALLOWED_CACHE_SETTINGS:
             logging.warning(f"Invalid browser_cache_settings '{browser_cache_settings}', defaulting to 'honor'")
             browser_cache_settings = "honor"
 
@@ -31,7 +32,7 @@ def validate_cache_settings(cache_settings: dict) -> dict:
             browser_cache_ttl = 0
 
         cdn_cache_settings = cache_settings.get("cdn_cache_settings", "honor")
-        if cdn_cache_settings not in ["honor", "override"]:
+        if cdn_cache_settings not in ALLOWED_CACHE_SETTINGS:
             logging.warning(f"Invalid cdn_cache_settings '{cdn_cache_settings}', defaulting to 'honor'")
             cdn_cache_settings = "honor"
 
@@ -74,8 +75,13 @@ def validate_cache_settings(cache_settings: dict) -> dict:
         raise
 
 
-def write_variable_block(f):
-    """Writes the Terraform variable block for Azion API token."""
+def write_variable_block(f) -> None:
+    """
+    Writes the Terraform variable block for Azion API token.
+
+    Parameters:
+        f (file object): File object to write to.
+    """
     write_indented(f, 'variable "azion_api_token" {', 0)
     write_indented(f, 'default     = null', 1)
     write_indented(f, 'type        = string', 1)
@@ -84,15 +90,20 @@ def write_variable_block(f):
     write_indented(f, '', 0)
 
 
-def write_provider_block(f):
-    """Writes the Terraform provider block for Azion."""
+def write_provider_block(f) -> None:
+    """
+    Writes the Terraform provider block for Azion.
+
+    Parameters:
+        f (file object): File object to write to.
+    """
     write_indented(f, 'provider "azion" {', 0)
     write_indented(f, 'api_token = var.azion_api_token', 1)
     write_indented(f, '}', 0)
     write_indented(f, '', 0)
 
 
-def write_depends_on(f, attributes):
+def write_depends_on(f, attributes: Dict[str, Any]) -> None:
     """
     Writes the depends_on block for a Terraform resource.
 
@@ -108,7 +119,7 @@ def write_depends_on(f, attributes):
         write_indented(f, "]", 1)
 
 
-def write_main_setting_block(f, resource):
+def write_main_setting_block(f, resource: Dict[str, Any]) -> None:
     """
     Writes the Terraform block for the main Azion edge application setting.
 
@@ -116,14 +127,12 @@ def write_main_setting_block(f, resource):
         f (file object): File object to write to.
         resource (dict): Resource containing the main setting.
     """
-    try: 
-        attributes = resource.get("attributes", None)
+    try:
+        # Get Edge Application from attributes
+        attributes = resource.get("attributes")
         edge_application = attributes.get("edge_application")
-
-        name = edge_application.get("name", None)
-        if not name:
-            name = "Unnamed Edge Application"
-        normalized_name = sanitize_name(name)
+        edge_application_name = edge_application.get("name", "Unnamed Edge Application")
+        normalized_name = sanitize_name(edge_application_name)
 
         # Apply defaults and validate values
         delivery_protocol = edge_application.get("delivery_protocol", "http,https")
@@ -146,7 +155,7 @@ def write_main_setting_block(f, resource):
         # Write block
         write_indented(f, f'resource "azion_edge_application_main_setting" "{normalized_name}" {{', 0)
         write_indented(f, "edge_application = {", 1)
-        write_indented(f, f'name                     = "{edge_application["name"]}"', 2)
+        write_indented(f, f'name                     = "{edge_application_name}"', 2)
         write_indented(f, f'supported_ciphers        = "{supported_ciphers}"', 2)
         write_indented(f, f'delivery_protocol        = "{delivery_protocol}"', 2)
         write_indented(f, f'http_port                = {http_port}', 2)
@@ -164,14 +173,14 @@ def write_main_setting_block(f, resource):
         write_indented(f, "}", 1)
         write_indented(f, "}", 0)
         write_indented(f, "", 0)
-        logging.info(f"Main setting block written for {edge_application['name']}")
+        logging.info(f"Main setting block written for {edge_application_name}")
     except KeyError as e:
         logging.error(f"Missing key {e} in main setting attributes")
     except ValueError as e:
         logging.error(f"Unexpected error in write_main_setting_block: {e}")
 
 
-def write_origin_block(f, resource):
+def write_origin_block(f, resource: Dict[str, Any]) -> None:
     """
     Writes the origin resource block for Azion based on its business rules.
 
@@ -241,7 +250,7 @@ def write_origin_block(f, resource):
         raise
 
 
-def write_domain_block(f, resource):
+def write_domain_block(f, resource: Dict[str, Any]) -> None:
     """
     Writes the Terraform block for Azion domain configuration.
 
@@ -272,7 +281,7 @@ def write_domain_block(f, resource):
         logging.error(f"Unexpected error in write_domain_block: {e}")
 
 
-def write_rule_engine_block(f, resource):
+def write_rule_engine_block(f, resource: Dict[str, Any]) -> None:
     """
     Write a rule engine block to the Terraform file.
 
@@ -376,7 +385,7 @@ def write_rule_engine_block(f, resource):
         logging.error(f"Error writing rule engine block: {str(e)}")
 
 
-def write_cache_setting_block(f, resource: dict):
+def write_cache_setting_block(f, resource: Dict[str, Any]) -> None:
     """
     Writes the cache settings block for Azion based on validated settings.
 
@@ -385,9 +394,10 @@ def write_cache_setting_block(f, resource: dict):
         resource (dict): Resource to be written.
     """
     name = resource.get("name", "unnamed_cache_settings")
+    attributes = resource.get("attributes", {})
     try:
         # Validate and normalize cache settings
-        validated_settings = validate_cache_settings(resource.get("attributes", {}).get("cache_settings", {}))
+        validated_settings = validate_cache_settings(attributes.get("cache_settings", {}))
         main_setting_id = resource.get("attributes", {}).get("edge_application_id")
 
         # Write cache setting resource block
@@ -411,7 +421,7 @@ def write_cache_setting_block(f, resource: dict):
         write_indented(f, f'is_slice_edge_caching_enabled = {validated_settings["is_slice_edge_caching_enabled"]}', 2)
         write_indented(f, f'slice_configuration_range = {validated_settings["slice_configuration_range"]}', 2)
         write_indented(f, "}", 1)
-        write_depends_on(f, resource.get("attributes", {}))
+        write_depends_on(f, attributes)
         write_indented(f, "}", 0)
         write_indented(f, "", 0)
 
@@ -422,7 +432,7 @@ def write_cache_setting_block(f, resource: dict):
         raise
 
 
-def write_azion_edge_function_block(function_data: dict, resource_name: str) -> str:
+def write_azion_edge_function_block(function_data: Dict[str, Any], resource_name: str) -> str:
     """
     Generates a Terraform block for azion_edge_function resource with proper indentation.
 
@@ -460,7 +470,7 @@ def write_azion_edge_function_block(function_data: dict, resource_name: str) -> 
     return output.getvalue()
 
 
-def write_azion_edge_application_edge_functions_instance_block(f, attributes: dict, main_setting_name: str):
+def write_azion_edge_application_edge_functions_instance_block(f, attributes: Dict[str, Any], main_setting_name: str) -> None:
     """
     Writes the azion_edge_application_edge_functions_instance block.
 
@@ -471,7 +481,7 @@ def write_azion_edge_application_edge_functions_instance_block(f, attributes: di
     results = attributes.get("results", {})
     name = results.get("name")
     edge_function_id = results.get("edge_function_id")
-    args = results.get("args", None)
+    args = results.get("args")
 
     # Validate edge_functions in main_setting
     if not attributes.get("edge_functions", False):
@@ -501,17 +511,15 @@ def write_azion_edge_application_edge_functions_instance_block(f, attributes: di
     write_indented(f, "}", 0)
 
 
-def write_terraform_file(filepath: str, config: Dict[str, Any]):
+def write_terraform_file(filepath: str, config: Dict[str, Any]) -> None:
     """
     Writes the entire Terraform file based on the Azion configuration.
 
     Parameters:
         filepath (str): Path to the output Terraform file.
         config (dict): Azion configuration dictionary with resources to be written.
-        main_setting_name (str): Main setting name to use as a reference in dependencies.
     """
     try:
-        main_setting_name = config.get("global_settings", {}).get("main_setting_name")
         resouces = config["resources"]
 
         with open(filepath, "w", encoding="utf-8") as f:

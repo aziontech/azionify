@@ -1,22 +1,30 @@
 import logging
+import random
 from typing import Dict, Any, Optional
 from azion_resources import AzionResource
 from utils import sanitize_name
 from akamai.utils import map_origin_protocol_policy, map_origin_type, map_forward_host_header
 
 
-def create_origin(azion_resources: AzionResource, origin_attributes: Dict[str, Any], main_setting_name: str, edge_hostname: Optional[str], name: Optional[str] = None) -> Optional[Dict[str, Any]]:
+def create_origin(
+        azion_resources: AzionResource,
+        origin_attributes: Dict[str, Any],
+        main_setting_name: str,
+        edge_hostname: Optional[str],
+        name: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
     """
     Creates the origin resource for Azion, dynamically mapping Akamai addresses.
 
     Parameters:
-        attributes (dict): Attributes from Akamai configuration.
+        azion_resources (AzionResource): The Azion resource container.
+        origin_attributes (Dict[str, Any]): Attributes from Akamai configuration.
         main_setting_name (str): Name of the main Azion edge application resource.
         edge_hostname (Optional[str]): The edge hostname extracted from Akamai configuration.
         name (Optional[str]): Name of the origin resource.
 
     Returns:
-        dict: Azion-compatible origin resource.
+        Optional[Dict[str, Any]]: Azion-compatible origin resource.
     """
     try:
         logging.info("Creating Azion origin resource.")
@@ -58,13 +66,15 @@ def create_origin(azion_resources: AzionResource, origin_attributes: Dict[str, A
             logging.warning(f"Hostname not properly set. Using placeholder: {hostname}")
 
         # Construct the origin resource
+        random_number = str(random.randint(1000, 9999))
+        name = sanitize_name(name +"_"+ host_header + "_" + random_number if name else origin_attributes.get("name", "Default Origin"))
         origin_resource = {
             "type": "azion_edge_application_origin",
-            "name": sanitize_name(name if name else origin_attributes.get("name", "Default Origin")),
+            "name": name,
             "attributes": {
                 "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
                 "origin": {
-                    "name": sanitize_name(name if name else origin_attributes.get("name", "Default Origin")),
+                    "name": name,
                     "origin_type": origin_type,
                     "addresses": addresses,
                     "origin_protocol_policy": origin_protocol_policy,
