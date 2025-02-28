@@ -8,6 +8,7 @@ from akamai.utils import (
     map_origin_type,
     replace_variables,
     map_operator,
+    map_variable,
     behavior_key
 )
 from utils import sanitize_name
@@ -142,6 +143,7 @@ def assemble_request_rule(
         Dict[str, Any]: Rule engine resource.
     """
     phase = "request" if rule_name != "default" else "default"
+    rule_description = rule.get("comments", "").replace("\n", " ").replace("\r", " ").replace("\"", "'")
     resource = {
         "type": "azion_edge_application_rule_engine",
         "name": sanitize_name(rule_name), 
@@ -149,7 +151,7 @@ def assemble_request_rule(
             "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
             "results": {
                 "name": "Default Rule" if phase == "default" else sanitize_name(rule_name),
-                "description": rule.get("comments", ""),
+                "description": rule_description,
                 "phase": phase,
                 "behaviors": request_behaviors
             },
@@ -203,7 +205,8 @@ def assemble_response_rule(
                         break
     else:
         selected_criteria = azion_criteria.get("response_default")
-    
+
+    rule_description = rule.get("comments", "").replace("\n", " ").replace("\r", " ").replace("\"", "'")
     resource = {
         "type": "azion_edge_application_rule_engine",
         "name": name,
@@ -211,7 +214,7 @@ def assemble_response_rule(
             "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
             "results": {
                 "name": name,
-                "description": rule.get("comments", ""),
+                "description": rule_description,
                 "phase": "response",
                 "behaviors": behaviors
             },
@@ -391,7 +394,7 @@ def process_criteria(
                 "akamai_behavior": mapping.get("akamai_behavior",""),
             }
             if input_value is not None:
-                entry["input_value"] = input_value
+                entry["input_value"] = input_value.replace("\r", "")
 
             # Append to the correct phase
             if mapping.get("phase") == "response":
@@ -550,6 +553,7 @@ def behavior_capture_match_groups(
     regex_value = replace_variables(options.get('regex')).replace('/', r'\/').replace('.', r'\\.')
     random_number = random.randint(1000, 9999)
     captured_array = options.get("variableName",f"var{random_number}")[:10]
+    subject = map_variable(options.get("variableValue"))
     azion_behavior = {
         "name": mapping["azion_behavior"],
         "enabled": True,
@@ -559,7 +563,7 @@ def behavior_capture_match_groups(
         ),
         "target": {
             "captured_array": f'"{captured_array}"',
-            "subject": f'{replace_variables(options.get("variableValue"))}',
+            "subject": f'{subject}',
             "regex": f"\"(.*)\\\\/{regex_value}\"",
         }
     }

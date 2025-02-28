@@ -3,23 +3,46 @@ import re
 from typing import Dict, Any, Optional, List
 from utils import clean_and_parse_json, sanitize_name
 
-operator_map = {
-        "EQUALS": "is_equal",
-        "EQUALS_ONE_OF": "is_equal",
-        "DOES_NOT_EQUAL": "is_not_equal",
-        "DOES_NOT_EQUAL_ONE_OF": "is_not_equal",
-        "MATCHES": "matches",
-        "MATCHES_ONE_OF": "matches",
-        "DOES_NOT_MATCH": "does_not_match",
-        "DOES_NOT_MATCH_ONE_OF": "does_not_match",
-        "STARTS_WITH": "starts_with",
-        "STARTS_WITH_ONE_OF": "starts_with",
-        "DOES_NOT_START_WITH": "does_not_start_with",
-        "EXISTS": "exists",
-        "DOES_NOT_EXIST": "does_not_exist",
-        "IS_ONE_OF": "is_equal",
-        "IS_NOT_ONE_OF": "is_not_equal"
-    }
+OPERATOR_MAP = {
+    "EQUALS": "is_equal",
+    "EQUALS_ONE_OF": "is_equal",
+    "DOES_NOT_EQUAL": "is_not_equal",
+    "DOES_NOT_EQUAL_ONE_OF": "is_not_equal",
+    "MATCHES": "matches",
+    "MATCHES_ONE_OF": "matches",
+    "DOES_NOT_MATCH": "does_not_match",
+    "DOES_NOT_MATCH_ONE_OF": "does_not_match",
+    "STARTS_WITH": "starts_with",
+    "STARTS_WITH_ONE_OF": "starts_with",
+    "DOES_NOT_START_WITH": "does_not_start_with",
+    "EXISTS": "exists",
+    "DOES_NOT_EXIST": "does_not_exist",
+    "IS_ONE_OF": "is_equal",
+    "IS_NOT_ONE_OF": "is_not_equal"
+}
+
+# Context-aware mappings (direct mapping based on Akamai builtin variable)
+AKAMAI_TO_AZION_MAP = {
+    "AK_PATH": "$${uri}",
+    "AK_CLIENT_IP": "$${remote_addr}",
+    "AK_ORIGINAL_URL": "$${request}",
+    "AK_SCHEME": "$${scheme}",
+    "AK_QUERY": "$${args}",
+    "AK_METHOD": "$${request_method}",
+    "AK_HOST": "$${host}",
+    "AK_TLS_VERSION": "$${tls_version}",
+    "AK_CLIENT_REAL_IP": "$${remote_addr}",
+    "AK_CLIENT_RTT": "$${rtt}",
+    "AK_CLIENT_USER_AGENT": "$${user_agent}",
+    "AK_CLIENT_ACCEPT_LANGUAGE": "$${http_accept_language}",
+    "AK_CLIENT_ACCEPT_ENCODING": "$${http_accept_encoding}",
+    "AK_CLIENT_ACCEPT_CHARSET": "$${http_accept_charset}",
+    "AK_CLIENT_COOKIE": "$${cookie_name}",
+    "AK_CLIENT_REFERER": "$${http_referer}",
+    "PMUSER_REDIR": "$${variable}",
+    "PMUSER_REDIR2": "$${variable}",
+    # Add more mappings as needed...
+}
 
 def get_main_setting_name(akamai_config: dict) -> str:
     """
@@ -153,32 +176,11 @@ def map_variable(value: str) -> str:
     # Check if the variable has the 'builtin.' prefix and remove it if present
     if value.startswith("{{builtin."):
         value = value.replace("{{builtin.", "").replace("}}", "")
-
-    # Context-aware mappings (direct mapping based on Akamai builtin variable)
-    akamai_to_azion_map = {
-        "AK_PATH": "$${uri}",
-        "AK_CLIENT_IP": "$${remote_addr}",
-        "AK_ORIGINAL_URL": "$${request}",
-        "AK_SCHEME": "$${scheme}",
-        "AK_QUERY": "$${args}",
-        "AK_METHOD": "$${request_method}",
-        "AK_HOST": "$${host}",
-        "AK_TLS_VERSION": "$${tls_version}",
-        "AK_CLIENT_REAL_IP": "$${remote_addr}",
-        "AK_CLIENT_RTT": "$${rtt}",
-        "AK_CLIENT_USER_AGENT": "$${user_agent}",
-        "AK_CLIENT_ACCEPT_LANGUAGE": "$${http_accept_language}",
-        "AK_CLIENT_ACCEPT_ENCODING": "$${http_accept_encoding}",
-        "AK_CLIENT_ACCEPT_CHARSET": "$${http_accept_charset}",
-        "AK_CLIENT_COOKIE": "$${cookie_name}",
-        "AK_CLIENT_REFERER": "$${http_referer}",
-        "PMUSER_REDIR": "$${variable}",
-        "PMUSER_REDIR2": "$${variable}",
-        # Add more mappings as needed...
-    }
+    if value.startswith("{{user."):
+        value = value.replace("{{user.", "").replace("}}", "")
 
     # Get the appropriate mapping for the variable or return the original value as a fallback
-    return akamai_to_azion_map.get(value, value)
+    return AKAMAI_TO_AZION_MAP.get(value, value)
 
 def replace_variables(input_string: str) -> str:
     """
@@ -283,7 +285,7 @@ def map_operator(akamai_operator: str) -> str:
     Returns:
         str: Azion operator
     """
-    return operator_map.get(akamai_operator, "matches")  # default to matches if unknown
+    return OPERATOR_MAP.get(akamai_operator, "matches")  # default to matches if unknown
 
 def is_positive_operator(operator: str) -> bool:
     """
