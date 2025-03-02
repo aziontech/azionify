@@ -101,9 +101,10 @@ MAPPING = {
         "gzipResponse": {"azion_behavior": "enable_gzip", "phase": "response", "akamai_behavior": "gzipResponse"},
 
         # Cache Control
-        "noCaching": {"azion_behavior": "bypass_cache_phase"},
+        "noCaching": {"azion_behavior": "bypass_cache_phase","phase": "request", "akamai_behavior": "noCaching"},
         "caching": {
             "azion_behavior": "set_cache_policy",
+            "phase": "request",
             "target": {
                 "browser_cache_settings": "override",
                 "browser_cache_settings_maximum_ttl": "ttl",
@@ -115,12 +116,14 @@ MAPPING = {
                 "enable_stale_cache": lambda options: not options.get("mustRevalidate", False),
             },
         },
-        "bypassCache": {"azion_behavior": "bypass_cache_phase"},
+        "bypassCache": {"azion_behavior": "bypass_cache_phase","phase": "request", "akamai_behavior": "bypassCache"},
         "prefreshCache": {
             "azion_behavior": "set_cache_policy",
             "target": {
                 "prefresh_value": "prefreshval"
-            }
+            },
+            "phase": "request",
+            "akamai_behavior": "prefreshCache"
         },
         #"downstreamCache": {
         #    "azion_behavior": "set_cache_policy",
@@ -141,7 +144,9 @@ MAPPING = {
         },
         "modifyIncomingRequestCookie": {
             "azion_behavior": "add_request_cookie",
-            "target": {"name": "cookie_name", "value": "cookie_value"}
+            "target": {"name": "cookie_name", "value": "cookie_value"},
+            "phase": "request",
+            "akamai_behavior": "modifyIncomingRequestCookie"
         },
         "removeResponseCookie": {
             "azion_behavior": "filter_response_cookie",
@@ -149,10 +154,23 @@ MAPPING = {
             "phase": "response",
             "akamai_behavior": "removeResponseCookie"
         },
-        "removeRequestCookie": {"azion_behavior": "filter_request_cookie", "target": "cookie_name"},
-        "forwardCookies": {"azion_behavior": "forward_cookies"},
+        "removeRequestCookie": {
+            "azion_behavior": "filter_request_cookie", 
+            "target": "cookie_name", 
+            "phase": "request", 
+            "akamai_behavior": "removeRequestCookie"
+        },
+        "forwardCookies": {"azion_behavior": "forward_cookies", "phase": "request", "akamai_behavior": "forwardCookies"},
         "cookies": {
-            "logCookies": {"azion_behavior": "add_request_header", "target": {"name": "Set-Cookie", "value": "log_cookie"}},
+            "logCookies": {
+                "azion_behavior": "add_request_header", 
+                "target": {
+                    "name": "Set-Cookie", 
+                    "value": "log_cookie"
+                },
+                "phase": "request",
+                "akamai_behavior": "logCookies"
+            },
         },
 
         # Headers (adding/removing/modifying)
@@ -175,7 +193,9 @@ MAPPING = {
             "target": {
                 "name": "Transfer-Encoding",
                 "target": "Transfer-Encoding"
-            }
+            },
+            "phase": "request",
+            "akamai_behavior": "allowTransferEncoding"
         },
         "removeVary": {
             "azion_behavior": "filter_response_header",
@@ -191,37 +211,42 @@ MAPPING = {
              "target": {
                 "target": get_redirect_target
              },
+             "phase": "request",
              "akamai_behavior": "redirect"
         },
-        "redirectPermanent": {"azion_behavior": "redirect_http_to_https", "target": "location"},
-        "redirectTemporary": {"azion_behavior": "redirect_http_to_https", "target": "location"},
-        "redirectToHttps": {"azion_behavior": "redirect_http_to_https"},
+        "redirectPermanent": {"azion_behavior": "redirect_http_to_https", "target": "location", "phase": "request", "akamai_behavior": "redirectPermanent"},
+        "redirectTemporary": {"azion_behavior": "redirect_http_to_https", "target": "location", "phase": "request", "akamai_behavior": "redirectTemporary"},
+        "redirectToHttps": {"azion_behavior": "redirect_http_to_https", "phase": "request", "akamai_behavior": "redirectToHttps"},
 
         # Origin
         "origin": {
             "azion_behavior": "set_origin",
             "target": {
                 "enabled": "enabled"
-            }
+            },
+            "phase": "request",
+            "akamai_behavior": "origin"
         },
         "cloudletsOrigin": {
             "azion_behavior": "set_origin",  # Use custom origin behavior in Azion
             "target": {
                 "addresses": lambda options: [{"address": options.get("originId"), "weight": 1}],
                 "origin_type": "single_origin",
-            }
+            },
+            "phase": "request",
+            "akamai_behavior": "cloudletsOrigin"
         },
 
         # Response
-        "respondWithNoContent": {"azion_behavior": "no_content"},
+        "respondWithNoContent": {"azion_behavior": "no_content", "phase": "request", "akamai_behavior": "respondWithNoContent"},
 
         # Edge Functions
-        "edgeWorker": {"azion_behavior": "run_function", "target": "function_id"},
-        "run_function": {"azion_behavior": "run_function", "target": "function_id"},
+        "edgeWorker": {"azion_behavior": "run_function", "target": "function_id", "akamai_behavior": "edgeWorker"},
+        "run_function": {"azion_behavior": "run_function", "target": "function_id", "akamai_behavior": "run_function"},
         #"webApplicationFirewall": {"azion_behavior": "run_function", "target": {"name": "WAF"}},
 
         # Image Optimization
-        "imageManager": {"azion_behavior": "optimize_images"},
+        "imageManager": {"azion_behavior": "optimize_images", "phase": "request", "akamai_behavior": "imageManager"},
         #"prefetch": {
         #    "azion_behavior": "optimize_images",
         #    "target": {},
@@ -238,29 +263,37 @@ MAPPING = {
             "azion_behavior": "rewrite_request",
             "target": {
                 "target": lambda options: f"\"{replace_variables(options.get('targetUrl','')).strip()}\""
-            }
+            },
+            "phase": "request",
+            "akamai_behavior": "rewriteUrl"
         },
         "rewrite_request": {
             "azion_behavior": "rewrite_request", 
-            "target": "path"
+            "target": "path",
+            "phase": "request",
+            "akamai_behavior": "rewrite_request"
         },
         "baseDirectory": {
             "azion_behavior": "rewrite_request",
             "target": {
-                "target": lambda options: f"{options.get('baseDirectory', '')}$${{uri}}" # Concatenate baseDirectory with original path
+                "target": lambda options: f"{options.get('baseDirectory', '')}$${{uri}}", # Concatenate baseDirectory with original path
+                "phase": "request",
+                "akamai_behavior": "baseDirectory"
             }
         },
 
         # Special Cases
         "deliver": {"azion_behavior": "deliver"},
-        "deny": {"azion_behavior": "deny"},
+        "deny": {"azion_behavior": "deny", "phase": "request", "akamai_behavior": "deny"},
         "setVariable": {
             "azion_behavior": "capture_match_groups",
             "target": {
                 "captured_array": "variableName",
                 "subject": "dynamic_subject",
                 "regex": "regex"
-            }
+            },
+            "phase": "request",
+            "akamai_behavior": "setVariable"
         },
     },
     "advanced_behaviors": {

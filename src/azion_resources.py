@@ -31,7 +31,8 @@ class AzionResource:
     def query_azion_resource_by_type(
         cls, 
         resource_type: str,
-        name: Optional[str] = None
+        name: Optional[str] = None,
+        match: Optional[str] = "exact"
     ) -> Tuple[int, Optional[Dict[str, Any]]]:
         """
         Query a list of Azion resources by the 'type' field. Return the first matching resource.
@@ -39,14 +40,21 @@ class AzionResource:
         Parameters:
             resource_type (str): The value of the 'type' field to search for.
             name (Optional[str]): The value of the 'name' field to search for.
+            match (Optional[str]): The way to match the 'name' field. Can be 'exact' or 'prefix'.
 
         Returns:
             Optional[Dict[str, Any]]: The first resource with the matching 'type', or None if not found.
         """
         resources = cls.get_azion_resources()
         for index, resource in enumerate(resources):
-            if resource.get("type") == resource_type and (name is None or resource.get("name") == name):
-                return index, resource
+            if resource.get("type") == resource_type:
+                if name is None:
+                    return index, resource
+                resource_name = resource.get("name", "")
+                if match == "exact" and resource_name == name:
+                    return index, resource
+                elif match == "prefix" and resource_name.startswith(name):
+                    return index, resource
         return -1, None
 
     @classmethod

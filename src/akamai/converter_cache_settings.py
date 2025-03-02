@@ -49,7 +49,8 @@ def create_cache_setting(
         azion_resources: AzionResource,
         rules: List[Dict[str, Any]],
         main_setting_name: str,
-        cache_name: Optional[str] = None
+        cache_name: Optional[str] = None,
+        context: Dict[str, Any] = {}
     ) -> Optional[Dict[str, Any]]:
     """
     Creates a single Azion cache setting resource.
@@ -59,6 +60,7 @@ def create_cache_setting(
         rules (List[Dict[str, Any]]): List of rules extracted from Akamai configuration.
         main_setting_name (str): Name of the main Azion edge application resource.
         cache_name (Optional[str]): Name of the cache setting resource.
+        context (Dict[str, Any]): Context dictionary to store intermediate results.
 
     Returns:
         Optional[Dict[str, Any]]: Azion-compatible cache setting resource.
@@ -113,9 +115,19 @@ def create_cache_setting(
 
     #depends_on
     depends_on = [f"azion_edge_application_main_setting.{main_setting_name}"]
-    _, origin = azion_resources.query_azion_resource_by_type("azion_edge_application_origin", name)
+    origin = context.get("origin")
     if origin:
-        depends_on.append(f"azion_edge_application_origin.{name}")
+        depends_on.append(f"azion_edge_application_origin.{origin.get('name')}")
+    else:
+        logging.warning("No origin found in context. Attempting to query Azion resources...")
+        _, origin = azion_resources.query_azion_resource_by_type("azion_edge_application_origin", name, match="prefix")
+        if origin:
+            depends_on.append(f"azion_edge_application_origin.{origin.get('name')}")
+        else:
+            logging.warning(f"No origin found for rule: {name}... Using fallback origin")
+            _, origin = azion_resources.query_azion_resource_by_type("azion_edge_application_origin", match="prefix")
+            if origin:
+                depends_on.append(f"azion_edge_application_origin.{origin.get('name')}")
 
     # Construct the cache setting resource
     cache_setting = {
