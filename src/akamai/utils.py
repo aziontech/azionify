@@ -105,7 +105,7 @@ def extract_edge_hostname(akamai_config: dict) -> Optional[str]:
                             return edge_hostname
 
     except ValueError as e:
-        print(f"Error in extract_edge_hostname: {e}")
+        logging.error(f"Error in extract_edge_hostname: {e}")
 
     logging.warning("Edge hostname not found in Akamai configuration.")
     return None
@@ -193,13 +193,11 @@ def replace_variables(input_string: str) -> str:
         str: The string with Akamai variables replaced by Azion equivalents.
     """
     # Regular expression pattern to match Akamai variables, e.g., {{builtin.AK_PATH}}
-    pattern = r"{{builtin\.[a-zA-Z0-9_\.]+}}"
+    pattern = r"{{(builtin|user)\.[a-zA-Z0-9_\.]+}}"
     
     # Function to replace the matched variable with its mapped Azion value
     def replace_match(match):
         variable = match.group(0)
-        # Remove the '{{builtin.' and '}}' and map it
-        variable = variable.replace("{{builtin.", "").replace("}}", "")
         return map_variable(variable)
 
     # Replace all occurrences of Akamai variables in the string using the regex pattern
@@ -370,13 +368,12 @@ def get_redirect_target(options: Dict[str, Any]) -> str:
         sibling = options.get('destinationHostnameSibling', '')
         hostname = '$${host}'.replace('www.', f"{sibling}.")
     elif hostname_type == 'OTHER':
-        hostname = options.get('destinationHostnameOther', '$${host}')
+        hostname = replace_variables(options.get('destinationHostnameOther', '$${host}'))
     else:
         hostname = '$${host}'
     
     # Handle path and query string
     path_type = options.get('destinationPath', 'SAME_AS_REQUEST')
-    
     if path_type == 'SAME_AS_REQUEST':
         path = '$${uri}'
         query_string = '$${args}' if options.get('queryString') == 'APPEND' else ''
@@ -387,7 +384,7 @@ def get_redirect_target(options: Dict[str, Any]) -> str:
         path = f"{prefix}/$${{'uri'}}{suffix}"
         query_string = '$${args}' if options.get('queryString') == 'APPEND' else ''
     elif path_type == 'OTHER':
-        other_path = options.get('destinationPathOther', '')
+        other_path = replace_variables(options.get('destinationPathOther', ''))
         if not other_path:
             path = '$${uri}'
             query_string = '$${args}' if options.get('queryString') == 'APPEND' else ''

@@ -86,6 +86,7 @@ def process_rules(
         main_setting_name (str): The main setting name for Azion configuration.
         origin_hostname (str): The origin hostname for Azion configuration.
     """
+    context = {}
     if isinstance(rules, str):
         logging.debug("Rules attribute is a string reference. Converting to JSON content.")
         rules = clean_and_parse_json(rules)
@@ -105,10 +106,10 @@ def process_rules(
         logging.info(f"[Akamai Rules] Found {len(behaviors)} behaviors and {len(children)} children for rule: '{normalized_name}'")
     
         if len(behaviors) > 0:
-            process_rule_behaviors(azion_resources, rules, main_setting_name, origin_hostname, 0, normalized_name)   
+            context = process_rule_behaviors(azion_resources, rules, main_setting_name, origin_hostname, 0, normalized_name)   
 
         if len(children) > 0:
-            process_rule_children(azion_resources, children, main_setting_name, origin_hostname, 0, normalized_name)
+            process_rule_children(azion_resources, children, main_setting_name, origin_hostname, 0, normalized_name, context)
     
     elif isinstance(rules, list):
         logging.debug("Rules provided as a list. Processing each rule.")
@@ -120,10 +121,10 @@ def process_rules(
             logging.info(f"[Akamai Rules] Found {len(behaviors)} behaviors and {len(children)} children for rule: '{normalized_name}'")
 
             if behaviors:
-                process_rule_behaviors(azion_resources, rule, main_setting_name, origin_hostname, index, normalized_name)
+                context = process_rule_behaviors(azion_resources, rule, main_setting_name, origin_hostname, index, normalized_name)
 
             if len(children) > 0:
-                process_rule_children(azion_resources, children, main_setting_name, origin_hostname, index, normalized_name)
+                process_rule_children(azion_resources, children, main_setting_name, origin_hostname, index, normalized_name, context)
     
     else:
         logging.warning(f"[Akamai Rules] Unexpected type for rules: {type(rules)}. Skipping rule processing.")
@@ -138,7 +139,7 @@ def process_rule_behaviors(
         origin_hostname: str,
         index: int,
         normalized_name: str
-    ) -> List[Dict[str, Any]]:
+    ) -> Dict[str, Any]:
     """
     Processes the list of behaviors rules and converts them into Azion resources.
     
@@ -166,9 +167,15 @@ def process_rule_behaviors(
 
     for behavior in behaviors:
         behavior_name = behavior.get("name")
-        if behavior_name == "caching": # Cache Settings
+
+        if behavior_name == "origin": # Origin
+            origin = create_origin(azion_resources, behavior, main_setting_name, origin_hostname, context["rule_name"])
+            if origin:
+                azion_resources.append(origin)
+                context["origin"] = origin
+        elif behavior_name == "caching": # Cache Settings
             cache_setting.append(behavior) 
-            cache_setting = create_cache_setting(azion_resources, cache_setting, main_setting_name, context["rule_name"])
+            cache_setting = create_cache_setting(azion_resources, cache_setting, main_setting_name, context["rule_name"], context)
             if cache_setting:
                 azion_resources.append(cache_setting)
                 context["cache_setting"] = cache_setting
@@ -187,15 +194,11 @@ def process_rule_behaviors(
                 resources = azion_resources.get_azion_resources()
                 main_settings["attributes"]["edge_application"]["application_acceleration"] = True
                 resources[index_main_settings] = main_settings
-        elif behavior_name == "origin": # Origin
-            origin = create_origin(azion_resources, behavior, main_setting_name, origin_hostname, context["rule_name"])
-            if origin:
-                azion_resources.append(origin)
-                context["origin"] = origin
 
     azion_resources.extend(create_rule_engine(azion_resources, rule, context, context["rule_name"]))
 
     logging.info(f"[Akamai Rules] Processing behaviors for rules '{normalized_name}'. Finished.")
+    return context
 
 
 def process_rule_children(
@@ -204,7 +207,8 @@ def process_rule_children(
         main_setting_name: str,
         origin_hostname: str,
         parent_rule_index: int,
-        parent_rule_name: str
+        parent_rule_name: str,
+        parent_context: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
     """
     Processes the list of children rules and converts them into Azion resources.
@@ -223,6 +227,7 @@ def process_rule_children(
     context = {}
     context["parent_rule_index"] = parent_rule_index
     context["parent_rule_name"] = parent_rule_name
+    context["parent_context"] = parent_context
     context["main_setting_name"] = main_setting_name 
 
     # Rules Processing
@@ -241,42 +246,43 @@ def process_rule_children(
         try:
             behaviors = rule.get("behaviors", [])
             for behavior in behaviors:
-                if behavior.get("name") == "caching":
-                    cache_setting = create_cache_setting(azion_resources, behaviors, main_setting_name, rule_name)
+                behavior_name = behavior.get("name")
+                if behavior_name == "origin":
+                    origin_setting = create_origin(azion_resources, behavior, main_setting_name, origin_hostname, sanitize_name(rule_name))
+                    if origin_setting:
+                        logging.info(f"Origin setting created for rule: {rule_name}")
+                        azion_resources.append(origin_setting)
+                        context["origin"] = origin_setting
+
+                elif behavior_name == "caching":
+                    cache_setting = create_cache_setting(azion_resources, behaviors, main_setting_name, rule_name, context)
                     if cache_setting:
                         logging.info(f"[Akamai Rules][Children] Cache setting created for rule: {rule_name}")
                         azion_resources.append(cache_setting)
                         context["cache_setting"] = cache_setting
 
-                if behavior.get("name") == "imageManager":
+                elif behavior.get("name") == "imageManager":
                     idx, main_settings = azion_resources.query_azion_resource_by_type('azion_edge_application_main_setting')
                     if main_settings:
                         main_settings["attributes"]["edge_application"]["image_optimization"] = True
                         resources = azion_resources.get_azion_resources()
                         resources[idx] = main_settings
 
-                if behavior.get("name") == "allowPost":
+                elif behavior.get("name") == "allowPost":
                     idx, main_settings = azion_resources.query_azion_resource_by_type('azion_edge_application_main_setting')
                     if main_settings:
                         resources = azion_resources.get_azion_resources()
                         main_settings["attributes"]["edge_application"]["application_acceleration"] = True
                         resources[idx] = main_settings
 
-                if behavior.get("name") == "origin":
-                    origin_setting = create_origin(azion_resources, behaviors[0], main_setting_name, origin_hostname, sanitize_name(rule_name))
-                    if origin_setting:
-                        logging.info(f"Origin setting created for rule: {rule_name}")
-                        azion_resources.append(origin_setting)
-                        context["origin"] = origin_setting
-
-                if behavior.get("name") == "webApplicationFirewall":
+                elif behavior.get("name") == "webApplicationFirewall":
                     waf_rule = create_waf_rule(azion_resources, behavior)
                     if waf_rule:
                         logging.info(f"WAF rule created for rule: {rule_name}")
                         azion_resources.append(waf_rule)
                         context["waf"] = waf_rule
 
-                if behavior.get("name") == "baseDirectory":
+                elif behavior.get("name") == "baseDirectory":
                     idx, origin = azion_resources.query_azion_resource_by_type('azion_edge_application_origin', sanitize_name(rule_name))
                     if origin:
                         origin["attributes"]["origin"]["origin_path"] = behavior.get("options", {}).get("value", "")
@@ -289,7 +295,7 @@ def process_rule_children(
             children = rule.get("children", [])
             if len(children) > 0:
                 logging.info(f"[Akamai Rules][Children] Rule '{rule_name}' has {len(children)} inner children rules. Processing...")
-                process_rule_children(azion_resources, children, main_setting_name, origin_hostname, index, rule_name)
+                process_rule_children(azion_resources, children, main_setting_name, origin_hostname, index, rule_name, context)
 
         except ValueError as e:
             logging.error(f"[Akamai Rules][Children] Error processing rule engine for rule {rule_name}: {e}")
