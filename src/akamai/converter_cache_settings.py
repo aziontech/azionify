@@ -50,7 +50,7 @@ def create_cache_setting(
         rules: List[Dict[str, Any]],
         main_setting_name: str,
         cache_name: Optional[str] = None,
-        context: Dict[str, Any] = {}
+        context: Optional[Dict[str, Any]] = None
     ) -> Optional[Dict[str, Any]]:
     """
     Creates a single Azion cache setting resource.
@@ -60,11 +60,14 @@ def create_cache_setting(
         rules (List[Dict[str, Any]]): List of rules extracted from Akamai configuration.
         main_setting_name (str): Name of the main Azion edge application resource.
         cache_name (Optional[str]): Name of the cache setting resource.
-        context (Dict[str, Any]): Context dictionary to store intermediate results.
+        context (Optional[Dict[str, Any]]): Context dictionary to store intermediate results.
 
     Returns:
         Optional[Dict[str, Any]]: Azion-compatible cache setting resource.
     """
+    if context is None:
+        context = {}
+
     # Extract and validate caching behavior
     caching_behavior = next((rule['options'] for rule in rules if rule.get("name") == "caching"), None)
     if not caching_behavior:
@@ -142,4 +145,3 @@ def create_cache_setting(
 
     logging.info(f"Cache setting created for rule: {name}")
     return cache_setting
-
