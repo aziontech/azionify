@@ -278,7 +278,6 @@ MAPPING = {
             "target": {
                 "target": lambda options: f"{options.get('input', '')}$${{uri}}", # Concatenate baseDirectory with original path
             },
-            "azion_operator": "starts_with",
             "phase": "request",
             "akamai_behavior": "baseDirectory"
         },
