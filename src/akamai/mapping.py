@@ -276,10 +276,11 @@ MAPPING = {
         "baseDirectory": {
             "azion_behavior": "rewrite_request",
             "target": {
-                "target": lambda options: f"{options.get('baseDirectory', '')}$${{uri}}", # Concatenate baseDirectory with original path
-                "phase": "request",
-                "akamai_behavior": "baseDirectory"
-            }
+                "target": lambda options: f"{options.get('input', '')}$${{uri}}", # Concatenate baseDirectory with original path
+            },
+            "azion_operator": "starts_with",
+            "phase": "request",
+            "akamai_behavior": "baseDirectory"
         },
 
         # Special Cases
