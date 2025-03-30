@@ -302,5 +302,81 @@ def resources_filter_by_type(resources: List[Dict[str, Any]], resource_type: str
     Retorna:
         List[Dict[str, Any]]: Lista de objetos com o campo 'type' correspondente.
     """
-    filtered_resources = [resource for resource in resources if resource.get("type") == resource_type]
-    return filtered_resources
+    return [resource for resource in resources if resource.get("type") == resource_type]
+
+def find_function(function_map: List[Dict[str, Any]], policy_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Find a function in the function mapping based on a policy ID.
+
+    Parameters:
+        function_map (List[Dict[str, Any]]): List of function mappings.
+        policy_id (str): The policy ID to match against.
+
+    Returns:
+        Optional[Dict[str, Any]]: The matched function mapping or None if not found.
+    """
+    if not function_map or not policy_id:
+        return None
+    
+    for mapping in function_map:
+        if str(mapping.get("policy_id", "")) == str(policy_id):
+            return {
+                "behavior_name": mapping.get("behavior_name"),
+                "function_id": mapping.get("function_id"),
+                "args": mapping.get("args", [])
+            }
+    
+    return None
+
+def get_behavior_config(behavior_name: str, args: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Get the behavior configuration based on the behavior name and arguments.
+
+    Parameters:
+        behavior_name (str): Name of the behavior (e.g., edgeRedirector, forwardRewrite)
+        args (List[Dict[str, Any]]): List of behavior-specific arguments
+
+    Returns:
+        Dict[str, Any]: Configuration for the specified behavior
+    """
+    if not behavior_name or not args:
+        return {}
+
+    if behavior_name == "edgeRedirector":
+        return {
+            "name": "edge_redirector",
+            "rules": [
+                {
+                    "name": arg.get("name", ""),
+                    "source": arg.get("matchURL", ""),
+                    "target": arg.get("redirectURL", ""),
+                    "status_code": arg.get("statusCode", 301),
+                    "preserve_query_string": arg.get("useIncomingQueryString", True)
+                } for arg in args
+            ]
+        }
+    elif behavior_name == "forwardRewrite":
+        return {
+            "name": "forward_rewrite",
+            "rules": [
+                {
+                    "name": arg.get("name", ""),
+                    "source": arg.get("matchURL", ""),
+                    "target": arg.get("forwardURL", ""),
+                    "preserve_query_string": arg.get("useIncomingQueryString", True)
+                } for arg in args
+            ]
+        }
+    elif behavior_name == "requestControl":
+        return {
+            "name": "request_control",
+            "rules": [
+                {
+                    "name": arg.get("name", ""),
+                    "matches": arg.get("matches", []),
+                    "rate": arg.get("rate", {})
+                } for arg in args
+            ]
+        }
+    
+    return {}

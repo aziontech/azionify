@@ -295,6 +295,20 @@ MAPPING = {
             "phase": "request",
             "akamai_behavior": "setVariable"
         },
+
+        #Cloudlets
+        "edgeRedirector": {
+            "azion_behavior": "run_function",
+            "target": "function_id",
+            "phase": "request",
+            "akamai_behavior": "edgeRedirector"
+        },
+        "forwardRewrite": {
+            "azion_behavior": "run_function",
+            "target": "function_id",
+            "phase": "request",
+            "akamai_behavior": "forwardRewrite"
+        }
     },
     "advanced_behaviors": {
         "prefetch": {"azion_behavior": "prefetch_assets"},

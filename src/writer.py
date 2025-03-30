@@ -2,6 +2,7 @@ from typing import Dict, Any
 import logging
 from utils import sanitize_name, write_indented, resources_filter_by_type
 from io import StringIO
+import json
 
 logging.basicConfig(level=logging.INFO)
 
@@ -492,25 +493,58 @@ def write_azion_edge_application_edge_functions_instance_block(f, attributes: Di
             f"is not enabled in azion_edge_application_main_setting."
         )
 
-    # Begin resource block
     write_indented(f, f'resource "azion_edge_application_edge_functions_instance" "{name}" {{', 0)
-
-    # Write edge_application_id
     write_indented(f, f'edge_application_id = azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id', 1)
-
-    # Write results block
     write_indented(f, "results = {", 1)
     write_indented(f, f'name = "{name}"', 2)
     write_indented(f, f'edge_function_id = {edge_function_id}', 2)
     if args:
         write_indented(f, f'args = jsonencode({args})', 2)
     write_indented(f, "}", 1)
-
-    # Write depends_on using the helper function
     write_depends_on(f, attributes)
-
-    # End resource block
     write_indented(f, "}", 0)
+    write_indented(f, "", 0)
+
+
+def write_edge_function_instance_block(f, resource: Dict[str, Any]) -> None:
+    """
+    Writes the edge function instance block for Azion configuration.
+
+    Parameters:
+        f (file object): File object to write to.
+        resource (dict): Resource containing the edge function instance data.
+    """
+    attributes = resource.get("attributes", {})
+    name = sanitize_name(attributes.get("name", ""))
+    edge_function_id = attributes.get("edge_function_id")
+    args = attributes.get("args", {})
+    edge_application_name = attributes.get("edge_application_name", "main")
+
+    # Begin resource block
+    write_indented(f, f'resource "azion_edge_application_edge_functions_instance" "{name}" {{', 0)
+
+    # Write edge_application_id - this will be linked to the main setting
+    write_indented(f, f'  edge_application_id = azion_edge_application_main_setting.{edge_application_name}.edge_application.application_id', 0)
+
+    # Write instance configuration
+    write_indented(f, "  results = {", 0)
+    write_indented(f, f'    name = "{name}"', 0)
+    write_indented(f, f'    edge_function_id = {edge_function_id}', 0)
+    if args:
+        write_indented(f, '    args = jsonencode(', 0)
+        args_json = json.dumps(args, ensure_ascii=False, indent=4)
+        json_lines = args_json.split('\n')
+        for i, line in enumerate(json_lines):
+            if i == 0:
+                write_indented(f, line, 2)
+            else:
+                write_indented(f, line, 2)
+        write_indented(f, ")", 1)
+    write_indented(f, "  }", 0)
+
+    write_depends_on(f, attributes)
+    write_indented(f, "}", 0)
+    write_indented(f, "", 0)
 
 
 def write_terraform_file(filepath: str, config: Dict[str, Any]) -> None:
@@ -522,7 +556,7 @@ def write_terraform_file(filepath: str, config: Dict[str, Any]) -> None:
         config (dict): Azion configuration dictionary with resources to be written.
     """
     try:
-        resouces = config["resources"]
+        resources = config["resources"]
 
         with open(filepath, "w", encoding="utf-8") as f:
             # Write variable and provider blocks
@@ -530,36 +564,42 @@ def write_terraform_file(filepath: str, config: Dict[str, Any]) -> None:
             write_provider_block(f)
 
             # Write main setting block
-            main_setting = resources_filter_by_type(resouces, "azion_edge_application_main_setting")
+            main_setting = resources_filter_by_type(resources, "azion_edge_application_main_setting")
             if main_setting:
                 write_main_setting_block(f, main_setting[0])
 
             # Write origin block
-            origins = resources_filter_by_type(resouces, "azion_edge_application_origin")
+            origins = resources_filter_by_type(resources, "azion_edge_application_origin")
             if origins:
                 for origin in origins:
                     write_origin_block(f, origin)
             
             # Write application cache block
-            caches = resources_filter_by_type(resouces, "azion_edge_application_cache_setting")
+            caches = resources_filter_by_type(resources, "azion_edge_application_cache_setting")
             if caches:
                 for cache in caches:
                     write_cache_setting_block(f, cache)
 
+            # Write edge function instance block
+            edge_function_instances = resources_filter_by_type(resources, "azion_edge_application_edge_functions_instance")
+            if edge_function_instances:
+                for edge_function_instance in edge_function_instances:
+                    write_edge_function_instance_block(f, edge_function_instance)
+
             # Write rules engine block
-            rules_engines = resources_filter_by_type(resouces, "azion_edge_application_rule_engine")
+            rules_engines = resources_filter_by_type(resources, "azion_edge_application_rule_engine")
             if rules_engines:
                 for rule_engine in rules_engines:
                     write_rule_engine_block(f, rule_engine)
 
             # Write edge function block
-            edge_functions = resources_filter_by_type(resouces, "azion_edge_function")
+            edge_functions = resources_filter_by_type(resources, "azion_edge_function")
             if edge_functions:
                 for edge_function in edge_functions:
                     write_azion_edge_function_block(f, edge_function)
 
             # Write main setting block
-            domains = resources_filter_by_type(resouces, "azion_domain")
+            domains = resources_filter_by_type(resources, "azion_domain")
             if domains:
                 for domain in domains:
                     write_domain_block(f, domain)
