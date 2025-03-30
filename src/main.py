@@ -114,6 +114,10 @@ def main():
             logging.error(f"Unsupported input type: {args.in_type}")
             return
 
+        # Read the input configuration
+        logging.info(f"Reading {args.in_type} configuration from {args.input}")
+        provider_config = read_terraform_file(args.input)
+
         # Read function mapping if provided
         if args.function_map:
             try:
