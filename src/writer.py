@@ -262,7 +262,9 @@ def write_domain_block(f, resource: Dict[str, Any]) -> None:
     try:
         attributes = resource.get("attributes", {})
         domain = attributes.get("domain", {})
+        environment = attributes.get("environment", "production")
         normalized_name = sanitize_name(domain["name"])
+        
         write_indented(f, f'resource "azion_domain" "{normalized_name}" {{', 0)
         write_indented(f, "domain = {", 1)
         write_indented(f, f'cnames                    = {domain["cnames"]}', 2)
@@ -271,11 +273,13 @@ def write_domain_block(f, resource: Dict[str, Any]) -> None:
         write_indented(f, f'cname_access_only         = {str(domain["cname_access_only"]).lower()}', 2)
         write_indented(f, f'edge_application_id       = {domain["edge_application_id"]}', 2)
         write_indented(f, f'is_active                 = {str(domain["is_active"]).lower()}', 2)
+        if environment != "production":
+            write_indented(f, f'environment               = "{environment}"', 2)
         write_indented(f, "}", 1)
         write_depends_on(f, attributes)
         write_indented(f, "}", 0)
         write_indented(f, "", 0)
-        logging.info(f"Domain block written for {domain['name']}")
+        logging.info(f"Domain block written for {domain['name']} in environment: {environment}")
     except KeyError as e:
         logging.error(f"Missing key {e} in domain attributes")
     except ValueError as e:

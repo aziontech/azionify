@@ -40,7 +40,8 @@ def generate_azion_config(akamai_config: dict) -> dict:
                 "main_setting_name": main_setting_name,
                 "edge_hostname": edge_hostname,
                 "origin_hostname": origin_hostname,
-                "function_map": akamai_config.get("function_map", None)
+                "function_map": akamai_config.get("function_map", None),
+                "context": akamai_config.get("context", {})
             }
         })
         

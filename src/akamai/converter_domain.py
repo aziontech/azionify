@@ -28,6 +28,11 @@ def create_domain(
             logging.warning("Hostname session not found in the configuration.")
             return None
 
+        # Get environment from context
+        context = attributes.get("context", {})
+        environment = context.get("environment", "production")
+        logging.info(f"Using environment: {environment}")
+
         logging.info("Creating Azion domain resource.")
 
         # Extract cname_from values
@@ -41,6 +46,10 @@ def create_domain(
         if not isinstance(domain_name, str) or not domain_name.strip():
             logging.warning(f"Invalid 'name' format: {domain_name}. Defaulting to 'default-domain'.")
             domain_name = "default-domain"
+
+        # Add environment suffix to domain name if not production
+        if environment != "production":
+            domain_name = f"{domain_name}-{environment}"
 
         # Set digital_certificate_id based on cert_provisioning_type
         digital_certificate_id = None  # Default to Azion SAN certificate
@@ -73,10 +82,11 @@ def create_domain(
                     "is_active": True,
                 },
                 "depends_on": [f"azion_edge_application_main_setting.{main_setting_name}"],
+                "environment": environment,  # Add environment to attributes
             },
         }
 
-        logging.info(f"Domain resource created for '{domain_name}' with CNAMEs: {cnames}.")
+        logging.info(f"Domain resource created for '{domain_name}' with CNAMEs: {cnames} in environment: {environment}.")
         return domain_resource
 
     except Exception as e:
