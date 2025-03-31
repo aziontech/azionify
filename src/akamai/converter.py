@@ -380,4 +380,3 @@ def convert_akamai_to_azion(
     process_rules(azion_resources, attributes.get("rules", {}), main_setting_name, origin_hostname=origin_hostname)
 
     logging.info(f"Completed conversion for Akamai property: {attributes.get('name', 'Unknown')}")
-

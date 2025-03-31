@@ -11,7 +11,8 @@ from akamai.utils import (
     map_variable,
     behavior_key
 )
-from utils import sanitize_name
+from akamai.converter_edge_function_instance import create_edge_function_instance
+from utils import sanitize_name, find_function
 
 DEFAULT_CRITERIA = {
     "name": "default",
@@ -766,6 +767,62 @@ def process_behaviors(
                 seen_behaviors.add(unique_key)
             continue
 
+        # Handle special behavior: run_function
+        if mapping["azion_behavior"] == "run_function":
+            # Check if we have a function mapping for this behavior
+            cloudlet_id = options.get("cloudletPolicy", {}).get("id", "")
+            function_name = options.get("cloudletPolicy", {}).get("name", "")
+            main_setting_name = context.get("main_setting_name", "unnamed")
+
+            _, global_settings = azion_resources.query_azion_resource_by_type('global_settings')
+            function_map = global_settings.get("attributes",{}).get("function_map", None)
+            mapped_function = find_function(function_map, cloudlet_id)
+            
+            if mapped_function:
+                # Use the mapped function
+                function_id = mapped_function.get("function_id")
+                function_args = mapped_function.get("args", [])
+                
+                logging.info(f"[rules_engine][process_behaviors] Using Function ID: {function_id} for behavior '{ak_behavior_name}'")
+                
+                # Create edge function instance reference
+                instance_name = sanitize_name(f"{rule_name}_{function_name}_instance")
+                edge_function_instance = create_edge_function_instance(
+                    main_setting_name,
+                    instance_name,
+                    function_id,
+                    function_args
+                )
+                
+                # Add the edge function instance to the resources
+                if edge_function_instance:
+                    azion_resources.append(edge_function_instance)
+                    function_instance_ref = f"azion_edge_application_edge_functions_instance.{instance_name}"
+
+                    # Create behavior to run the edge function
+                    azion_behavior = {
+                        "name": "run_function",
+                        "enabled": True,
+                        "description": f"Function {function_name} mapped function {function_id}",
+                        "target": {
+                            "target": f"azion_edge_application_edge_functions_instance.{instance_name}.id"
+                        }
+                    }
+                    unique_key = behavior_key(azion_behavior)
+                    if unique_key in seen_behaviors:
+                        logging.debug(f"[rules_engine][process_behaviors] already processed behavior {behavior_name}, key {unique_key}. Skipping.")
+                        continue
+                    azion_behaviors.append(azion_behavior)
+                    seen_behaviors.add(unique_key)
+                    depends_on.add(function_instance_ref)
+
+                    continue
+            else:
+                # No mapping found Edge Function for Akamai Cloudlet
+                logging.warning(f"[rules_engine][process_behaviors] No Edge Function mapping found for Cloudlet on behavior: '{ak_behavior_name}' Skipping.")
+
+            continue
+
         # Skip if we've already processed this behavior type
         if behavior_name in seen_behaviors:
             logging.debug(f"[rules_engine][process_behaviors] already processed behavior {behavior_name}, key {unique_key}. Skipping.")
@@ -815,7 +872,7 @@ def process_behaviors(
         azion_behaviors.append(azion_behavior)
         seen_behaviors.add(unique_key)
 
-    # Add consolidated cache policy if we collected any optionss
+    # Add consolidated cache policy if we collected any options
     if cache_policy_options:
         azion_behaviors.append({
             "name": "set_cache_policy",

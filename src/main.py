@@ -1,8 +1,10 @@
 import argparse
 import logging
 import hcl2
+import json
 from writer import write_terraform_file
 from akamai.akamai import akamai_converter
+from typing import Optional, List, Dict, Any
 
 logging.basicConfig(level=logging.INFO)
 
@@ -27,9 +29,40 @@ def read_terraform_file(filepath: str) -> dict:
     except ValueError as e:  # Capture parsing errors
         logging.error(f"Failed to parse HCL content in {filepath}: {e}")
         raise e
-    except Exception as e:
-        logging.error(f"Unexpected error reading Terraform file {filepath}: {e}")
+    except OSError as e:
+        logging.error(f"Error reading Terraform file {filepath}: {e}")
         raise e
+
+
+def read_function_map(file_path: str) -> Optional[List[Dict[str, Any]]]:
+    """
+    Read and parse the function mapping file.
+
+    Args:
+        file_path (str): Path to the function mapping file.
+
+    Returns:
+        Optional[List[Dict[str, Any]]]: List of function mappings or None if file can't be read.
+    """
+    if not file_path:
+        return None
+
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+            # Try to parse as JSON first
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError as e:
+                logging.error(f"Error parsing function mapping file as JSON: {e}")
+                return None
+
+    except FileNotFoundError:
+        logging.error(f"Function mapping file not found: {file_path}")
+        return None
+    except OSError as e:
+        logging.error(f"Error reading function mapping file: {e}")
+        return None
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -54,6 +87,10 @@ def parse_arguments() -> argparse.Namespace:
         "--output",
         required=True,
         help="Path to the output Azion Terraform configuration file.",
+    )
+    parser.add_argument(
+        "--function_map",
+        help="Path to the function map file for mapping provider functions to edge functions.",
     )
     return parser.parse_args()
 
@@ -81,6 +118,24 @@ def main():
         logging.info(f"Reading {args.in_type} configuration from {args.input}")
         provider_config = read_terraform_file(args.input)
 
+        # Read function mapping if provided
+        if args.function_map:
+            try:
+                function_map = read_function_map(args.function_map)
+                if not function_map:
+                    logging.error("Failed to read function mapping.")
+                    return
+
+                logging.info(f"Loaded function mapping with {len(function_map)} entries")
+                # Add function mapping to provider config
+                provider_config["function_map"] = function_map
+                # Add function mapping to context for behavior processing
+                provider_config["context"] = provider_config.get("context", {})
+                provider_config["context"]["function_map"] = function_map
+            except (json.JSONDecodeError, OSError) as e:
+                logging.error(f"Error loading function mapping: {e}")
+                return
+
         # Process the configuration based on the provider
         logging.info(f"Processing {args.in_type} configuration.")
         azion_config = provider_dispatch[args.in_type](provider_config)
@@ -96,9 +151,6 @@ def main():
         logging.error(f"File not found: {e}")
     except ValueError as e:
         logging.error(f"Invalid configuration format: {e}")
-    except KeyError as e:
-        logging.error(f"Missing expected configuration key: {e}")
-
 
 if __name__ == "__main__":
     main()
