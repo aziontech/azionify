@@ -322,6 +322,20 @@ def create_main_resources(
         List[Dict[str, Any]]: A list of Azion resources.
     """
     try:
+        # Get context from global_settings if available
+        _, global_settings = azion_resources.query_azion_resource_by_type('global_settings')
+        context = {}
+        if global_settings and "attributes" in global_settings:
+            context = global_settings.get("attributes", {}).get("context", {})
+        
+        # Pass context to attributes for domain creation
+        if "context" in attributes:
+            # If attributes already has context, update it
+            attributes["context"].update(context)
+        else:
+            # Otherwise, add context to attributes
+            attributes["context"] = context
+            
         azion_resources.append(create_main_setting(azion_resources, attributes, main_setting_name))
         azion_resources.append(create_domain(azion_resources, attributes, main_setting_name))
         logging.info("Main setting, origin, and domain resources created.")

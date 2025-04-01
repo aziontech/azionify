@@ -92,6 +92,12 @@ def parse_arguments() -> argparse.Namespace:
         "--function_map",
         help="Path to the function map file for mapping provider functions to edge functions.",
     )
+    parser.add_argument(
+        "--environment",
+        choices=["production", "preview"],
+        default="production",
+        help="Environment to deploy to (default: production).",
+    )
     return parser.parse_args()
 
 
@@ -135,6 +141,11 @@ def main():
             except (json.JSONDecodeError, OSError) as e:
                 logging.error(f"Error loading function mapping: {e}")
                 return
+
+        # Add environment to provider config context
+        provider_config["context"] = provider_config.get("context", {})
+        provider_config["context"]["environment"] = args.environment
+        logging.info(f"Using environment: {args.environment}")
 
         # Process the configuration based on the provider
         logging.info(f"Processing {args.in_type} configuration.")
