@@ -10,6 +10,8 @@ Azionify is a flexible CLI tool designed to convert Terraform configurations fro
 - Resource Conversion: Converts CDN-specific Terraform resources (e.g., akamai_property) into Azion-compatible resources (azion_edge_application_*).
 - Dependency Management: Automatically detects and generates proper dependencies in Terraform files.
 - Customizable Input: Specify input CDN type for flexibility in migrations.
+- Function Mapping: Map provider-specific functions to Azion edge functions using a JSON configuration file.
+- Environment Support: Generate configurations for different environments (production or preview).
 
 ---
 
@@ -38,28 +40,110 @@ Azionify is a flexible CLI tool designed to convert Terraform configurations fro
 
 ### Command Line Arguments
 
-| Argument    | Description                                                   | Default       |
-|-------------|---------------------------------------------------------------|---------------|
-| `--input`   | Path to the Akamai Terraform configuration file.              | `akamai.tf`   |
-| `--output`  | Path to the output Azion Terraform configuration file.        | `azion.tf`    |
-| `--in-type` | Specifies the CDN type of the input file (e.g., akamai).      | `akamai`      |
+| Argument         | Description                                                        | Required | Default       |
+|------------------|--------------------------------------------------------------------|----------|---------------|
+| `--input`        | Path to the source Terraform configuration file.                   | Yes      | -             |
+| `--output`       | Path to the output Azion Terraform configuration file.             | Yes      | -             |
+| `--in-type`      | Specifies the CDN type of the input file (e.g., akamai).           | No       | `akamai`      |
+| `--function_map` | Path to the function map file for mapping functions to edge functions. | No    | -             |
+| `--environment`  | Environment to deploy to (production or preview).                  | No       | `production`  |
 
 ### Examples
 
-#### Default Configuration
-If you have a file named `akamai.tf` in your working directory and want to generate `azion.tf`:
+#### Basic Usage
+Convert an Akamai Terraform configuration to Azion format:
 ```bash
-python src/main.py
+python src/main.py --input akamai_config.tf --output azion_config.tf
 ```
 
-#### Custom Input and Output
-Specify custom input and output files:
+#### Using Function Map
+Map provider-specific functions to Azion edge functions:
 ```bash
-python src/main.py --input custom_akamai.tf --output custom_azion.tf
+python src/main.py --input akamai_config.tf --output azion_config.tf --function_map function_map.json
 ```
 
-#### Output
-The tool will generate an Azion-compatible Terraform configuration file at the specified output path.
+#### Specifying Environment
+Generate configuration for a preview environment:
+```bash
+python src/main.py --input akamai_config.tf --output azion_config.tf --environment preview
+```
+
+#### Complete Example
+```bash
+python src/main.py --input akamai_config.tf --output azion_config.tf --function_map function_map.json --environment preview
+```
+
+### Function Map Format
+
+The function map is a JSON file that maps provider-specific functions to Azion edge functions. This is particularly useful for converting edge behaviors and functions from the source provider to Azion.
+
+Example function map structure:
+```json
+[
+    {
+      "policy_id": "148213",
+      "behavior_name": "edgeRedirector",
+      "function_id": "54321",
+      "args": [
+        {
+          "matchURL": "https://example.com/old-path",
+          "redirectURL": "https://example.com/new-path",
+          "statusCode": 301
+        }
+      ]
+    }
+]
+```
+
+Key fields:
+- `policy_id`: The ID of the policy in the source provider
+- `behavior_name`: The name of the behavior in the source provider (e.g., "edgeRedirector")
+- `function_id`: The ID of the corresponding Azion edge function
+- `args`: Arguments for the function, which vary depending on the behavior type
+
+### Environment Parameter
+
+The `--environment` parameter affects how domains are configured in the generated Terraform:
+
+- `production` (default): Uses the original domain names without modification
+- `preview`: Appends "-preview" to domain names (e.g., "example.com" becomes "example.com-preview")
+
+This is useful for creating separate configurations for different environments while maintaining the same basic structure.
+
+---
+
+### Akamai Converter Modules
+
+Azionify includes several specialized converter modules for Akamai resources, each handling a specific aspect of the migration process:
+
+1. **Main Settings Converter**
+   - Converts Akamai property settings to Azion Edge Application main settings
+   - Handles configuration for delivery protocols, TLS versions, HTTP/HTTPS ports
+   - Sets up basic application features like caching, edge functions, and HTTP3 support
+
+2. **Domain Converter**
+   - Transforms Akamai hostname configurations into Azion domains
+   - Supports environment-specific domain naming (production/preview)
+   - Handles CNAMEs and digital certificate configurations
+
+3. **Origin Converter**
+   - Converts Akamai origin configurations to Azion origin settings
+   - Handles origin hostnames, ports, and connection settings
+   - Supports origin path and header configurations
+
+4. **Cache Settings Converter**
+   - Transforms Akamai caching behaviors to Azion cache policies
+   - Handles browser cache settings and CDN cache settings
+   - Configures TTL (Time-To-Live) values and stale cache behavior
+
+5. **Rules Engine Converter**
+   - Converts Akamai rule behaviors and conditions to Azion Rules Engine
+   - Handles request and response phase rules
+   - Supports complex rule conditions and criteria mapping
+
+6. **Edge Function Instance Converter**
+   - Maps Akamai Cloudlet instances to Azion Edge Function instances
+   - Handles function arguments and execution triggers
 
 ---
 
