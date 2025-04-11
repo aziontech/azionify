@@ -115,10 +115,16 @@ def create_main_setting(
     except AttributeError as e:
         logging.warning(f"Could not process HTTP/2 settings: {e}")
 
-    return {
+    # Get environment from context
+    context = attributes.get("context", {})
+    environment = context.get("environment", "production")
+    logging.info(f"Using environment for main settings: {environment}")
+    resource = {
         "type": "azion_edge_application_main_setting",
         "name": main_setting_name,
         "attributes": {
-            "edge_application": validated_attributes
+            "edge_application": validated_attributes,
+            "environment": environment
         }
     }
+    return resource

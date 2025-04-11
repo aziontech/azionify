@@ -384,7 +384,16 @@ def get_redirect_target(options: Dict[str, Any]) -> str:
         path = f"{prefix}/$${{'uri'}}{suffix}"
         query_string = '$${args}' if options.get('queryString') == 'APPEND' else ''
     elif path_type == 'OTHER':
-        other_path = replace_variables(options.get('destinationPathOther', ''))
+        value = options.get('destinationPathOther','')
+        if value.startswith('{{user.'):
+            match = re.search(r"\{\{user\.(.*?)\}\}", value)
+            if match:
+                other_path = f"{match.group(1)}"
+            else:
+                other_path = f"{value[7::-2]}"
+            other_path = f'{other_path[:10]}[1]'
+        else:
+            other_path = replace_variables(options.get('destinationPathOther', ''))
         if not other_path:
             path = '$${uri}'
             query_string = '$${args}' if options.get('queryString') == 'APPEND' else ''
