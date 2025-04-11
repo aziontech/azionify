@@ -132,7 +132,7 @@ def write_main_setting_block(f, resource: Dict[str, Any]) -> None:
         # Get Edge Application from attributes
         attributes = resource.get("attributes")
         edge_application = attributes.get("edge_application")
-        edge_application_name = edge_application.get("name", "Unnamed Edge Application")
+        edge_application_name = resource.get("name", "Unnamed Edge Application")
         normalized_name = sanitize_name(edge_application_name)
 
         # Apply defaults and validate values

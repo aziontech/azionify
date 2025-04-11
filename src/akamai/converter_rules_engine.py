@@ -68,6 +68,8 @@ def create_rule_engine(
         if behaviors or criteria:
             # Process conditions
             processed_rule = process_conditional_rule(rule)
+            context["rule"] = processed_rule
+            context["resources"] = resources
 
             # Process behaviors and criteria
             azion_behaviors, depends_on_behaviors = process_behaviors(azion_resources, behaviors, context, rule_name)
@@ -92,15 +94,16 @@ def create_rule_engine(
 
             # Create request phase rule
             if len(request_behaviors) > 0:
-                resource = assemble_request_rule(processed_rule, 
+                rules = assemble_request_rule(processed_rule, 
                                                 rule_name, 
                                                 main_setting_name, 
                                                 azion_criteria, 
                                                 request_behaviors, 
                                                 depends_on)
-                if resource:
-                    resources.append(resource)
-                    logging.info(f"[rules_engine] Rule engine resource created for rule: '{rule_name}'")
+                if rules:
+                    for rule in rules:
+                        resources.append(rule)
+                        logging.info(f"[rules_engine] Rule engine resource created for rule: '{rule.get('name')}'")
 
             # Create response phase rule
             if len(response_behaviors) > 0:
@@ -135,9 +138,10 @@ def assemble_request_rule(
         azion_criteria: Dict[str, Any],
         request_behaviors: List[Dict[str, Any]],
         depends_on: List[str]
-    ) -> Optional[Dict[str, Any]]:
+    ) -> List[Dict[str, Any]]:
     """
-    Create a rule engine resource from Akamai rule data.
+    Create a list of rule engine resources from Akamai rule data.
+    Rules with multiple 'run_function' or 'rewrite_request' behaviors are split into separate rules.
 
     Parameters:
         rule (Dict[str, Any]): Akamai rule data.
@@ -148,36 +152,87 @@ def assemble_request_rule(
         depends_on (List[str]): List of dependencies for the rule.
 
     Returns:
-        Dict[str, Any]: Rule engine resource.
+        List[Dict[str, Any]]: List of rule engine resources.
     """
     phase = "request" if rule_name != "default" else "default"
     rule_description = rule.get("comments", "").replace("\n", " ").replace("\r", " ").replace("\"", "'")
-    random_number = str(random.randint(1000, 9999))
-    unique_rule_name = sanitize_name(rule_name) + "_" + random_number
-    resource = {
-        "type": "azion_edge_application_rule_engine",
-        "name": unique_rule_name, 
-        "attributes": {
-            "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
-            "results": {
-                "name": "Default Rule" if phase == "default" else unique_rule_name,
-                "description": rule_description,
-                "phase": phase,
-                "behaviors": request_behaviors
-            },
-            "depends_on": depends_on
+    
+    result_rules = []
+    
+    # Group behaviors by type
+    special_behaviors = []  # 'run_function' or 'rewrite_request' behaviors
+    standard_behaviors = []  # Other behaviors
+    
+    for behavior in request_behaviors:
+        if behavior.get("name") in ["run_function", "rewrite_request"]:
+            special_behaviors.append(behavior)
+        else:
+            standard_behaviors.append(behavior)
+    
+    # If there are no special behaviors, create a single rule with all behaviors
+    if not special_behaviors:
+        # Check if no criteria found
+        criteria = azion_criteria.get("request", None)
+        if not criteria:
+            logging.warning(f"[rules_engine][assemble_request_rule] No criteria found for rule: '{rule_name}'. Skipping.")
+            return []
+
+        random_number = str(random.randint(1000, 9999))
+        unique_rule_name = sanitize_name(rule_name) + "_" + random_number
+        
+        resource = {
+            "type": "azion_edge_application_rule_engine",
+            "name": unique_rule_name, 
+            "attributes": {
+                "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
+                "results": {
+                    "name": "Default Rule" if phase == "default" else unique_rule_name,
+                    "description": rule_description,
+                    "phase": phase,
+                    "behaviors": request_behaviors,
+                    "criteria": criteria
+                },
+                "depends_on": depends_on
+            }
         }
-    }
-
-    # Only add criteria if we have entries
-    criteria = azion_criteria.get("request", None)
-    if criteria:
-        resource["attributes"]["results"]["criteria"] = criteria
+        result_rules.append(resource)
     else:
-        logging.warning(f"[rules_engine][assemble_request_rule] No criteria found for rule: '{rule_name}'. Skipping.")
-        resource = None
-
-    return resource
+        # Check if no criteria found
+        criteria = azion_criteria.get("request", None)
+        if not criteria:
+            logging.warning(f"[rules_engine][assemble_request_rule] No criteria found for rule: '{rule_name}'.")
+        
+        # Create a rule for each special behavior, combined with all standard behaviors
+        for idx, special_behavior in enumerate(special_behaviors):
+            random_number = str(random.randint(1000, 9999))
+            suffix = f"_sp{idx+1}_{random_number}"
+            unique_rule_name = sanitize_name(rule_name) + suffix
+            
+            if not criteria:
+                criteria = azion_criteria.get("request_default", None)
+                logging.warning(f"[rules_engine][assemble_request_rule] Using default criteria for rule: '{rule_name}'.")
+                combined_behaviors = [special_behavior]
+            else:
+                combined_behaviors = standard_behaviors + [special_behavior]
+            
+            resource = {
+                "type": "azion_edge_application_rule_engine",
+                "name": unique_rule_name, 
+                "attributes": {
+                    "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
+                    "results": {
+                        "name": unique_rule_name,
+                        "description": f"{rule_description} (Split rule {idx+1}/{len(special_behaviors)})",
+                        "phase": "request",
+                        "behaviors": combined_behaviors,
+                        "criteria": criteria
+                    },
+                    "depends_on": depends_on
+                }
+            }
+            result_rules.append(resource)
+    
+    return result_rules
 
 def assemble_response_rule(
         rule: Dict[str, Any],
@@ -593,6 +648,52 @@ def behavior_capture_match_groups(
 
     return azion_behavior, None
 
+def process_forward_rewrite(context,
+                           name, 
+                           main_setting_name,
+                           depends_on) -> List[Dict[str, Any]]:
+    """
+    Add rule engine forward rewrite behavior
+    Args:
+        context (dict): The context dictionary containing the rule and resources.
+        name (str): The name of the rule.
+        main_setting_name (str): The name of the main setting.
+        depends_on (set): A set of dependencies.
+    Returns:
+        resource (dict): The resource dictionary containing the rule and resources.
+    """
+    forwardRewrite_criteria = {
+        "request": {
+            "entries": [
+                {
+                    "variable": "$${http_x_az_forward_rewrite_uri}",
+                    "operator": "exists",
+                    "conditional": "if",
+                    "input_value": "*",
+                    "akamai_behavior": "forwardRewrite"
+                }
+            ]
+        }
+    }
+    forwardRewrite_behaviors = [
+        {
+            "name": "rewrite_request",
+            "enabled": True,
+            "description": f"Behavior for {name}",
+            "phase": "request",
+            "target": {
+                "target": '"/$${http_x_az_forward_rewrite_uri}"'
+            }
+        }
+    ]
+    resource = assemble_request_rule(context.get("rule"), 
+                                    name, 
+                                    main_setting_name, 
+                                    forwardRewrite_criteria, 
+                                    forwardRewrite_behaviors, 
+                                    depends_on)
+    return resource
+
 def process_behaviors(
         azion_resources: AzionResource,
         behaviors: List[Dict[str, Any]],
@@ -804,6 +905,8 @@ def process_behaviors(
                         "name": "run_function",
                         "enabled": True,
                         "description": f"Function {function_name} mapped function {function_id}",
+                        "phase": "request",
+                        "akamai_behavior": ak_behavior_name,
                         "target": {
                             "target": f"azion_edge_application_edge_functions_instance.{instance_name}.id"
                         }
@@ -815,6 +918,17 @@ def process_behaviors(
                     azion_behaviors.append(azion_behavior)
                     seen_behaviors.add(unique_key)
                     depends_on.add(function_instance_ref)
+
+                    # Handle special case for forwardRewrite
+                    if mapping.get("akamai_behavior") == "forwardRewrite":
+                        resource = process_forward_rewrite(context,
+                                                         f"{rule_name}_{function_name}",
+                                                         main_setting_name,
+                                                         depends_on)
+                        if resource:
+                            resources = context.get("resources", [])
+                            resources.append(resource[0])
+                            logging.info(f"[rules_engine] Rule engine resource created for rule: '{rule_name}'")
 
                     continue
             else:

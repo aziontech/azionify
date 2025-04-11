@@ -82,7 +82,7 @@ def create_domain(
                     "is_active": True,
                 },
                 "depends_on": [f"azion_edge_application_main_setting.{main_setting_name}"],
-                "environment": environment,  # Add environment to attributes
+                "environment": environment,
             },
         }
 

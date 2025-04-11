@@ -24,6 +24,11 @@ def generate_azion_config(akamai_config: dict) -> dict:
 
         # Step 2: Deduce the main setting name
         main_setting_name = get_main_setting_name(akamai_config)
+
+        # Add environment parameter if not production
+        environment = akamai_config.get("context", {}).get("environment", "production")
+        if environment != "production":
+            main_setting_name = f"{main_setting_name}_{environment}"
         logging.info(f"Main setting name deduced: {main_setting_name}")
 
         # Step 3: Find origin hostname
