@@ -334,10 +334,16 @@ def process_conditional_rule(rule: Dict[str, Any]) -> Dict[str, Any]:
                         "operator": mapping["azion_operator"],
                         "input_value": "|".join(content_types)  # Join multiple content types with OR operator
                     })
+            elif condition_name == "requestHeader":
+                header_name = condition["options"]["headerName"]
+                mapping["azion_condition"] = f"$${{http_{sanitize_name(header_name)}}}"
+            elif condition_name == "cloudletsOrigin":
+                azion_conditions.append({
+                    "conditional": mapping["azion_condition"],
+                    "operator": mapping["azion_operator"],
+                    "input_value": condition.get("options", {}).get("originId", "")
+                })
             else:
-                if condition_name == "requestHeader":
-                    header_name = condition["options"]["headerName"]
-                    mapping["azion_condition"] = f"$${{http_{sanitize_name(header_name)}}}"
                 # Handle other criteria types
                 azion_conditions.append({
                     "conditional": mapping["azion_condition"],
@@ -447,8 +453,11 @@ def process_criteria(
                 azion_operator = map_operator(akamai_operator)
 
             # Handle input values
-            values = options.get("values", [])
-            if len(values) == 0:
+            if 'originId' in options:
+                values = [options.get("originId", "")]
+            elif 'values' in options:
+                values = options.get("values", [])
+            else:
                 values = [options.get("value", "")]
 
             # Handle single or multiple values based on the operator

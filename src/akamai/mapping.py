@@ -72,7 +72,13 @@ MAPPING = {
         "geoipContinentCode": {"azion_condition": "$${geoip_continent_code}", "azion_operator": "matches"},
         "geoipRegion": {"azion_condition": "$${geoip_region}", "azion_operator": "matches"},
         "geoipRegionName": {"azion_condition": "$${geoip_region_name}", "azion_operator": "matches"},
-        #"cloudletsOrigin": {"azion_condition": "$${upstream_addr}", "azion_operator": "matches"},
+        "cloudletsOrigin": {
+            "azion_condition": "$${http_x_az_forward_rewrite_origin}", 
+            "azion_operator": "is_equal",
+            "conditional": "if",
+            "phase": "request",
+            "input_value": ''
+        },
         
         # Response Phase Variables
         "responseHeader": {
