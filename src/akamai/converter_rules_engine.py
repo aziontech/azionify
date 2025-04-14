@@ -335,8 +335,8 @@ def process_conditional_rule(rule: Dict[str, Any]) -> Dict[str, Any]:
                         "input_value": "|".join(content_types)  # Join multiple content types with OR operator
                     })
             elif condition_name == "requestHeader":
-                    header_name = condition["options"]["headerName"]
-                    mapping["azion_condition"] = f"$${{http_{sanitize_name(header_name)}}}"
+                header_name = condition["options"]["headerName"]
+                mapping["azion_condition"] = f"$${{http_{sanitize_name(header_name)}}}"
             elif condition_name == "cloudletsOrigin":
                 azion_conditions.append({
                     "conditional": mapping["azion_condition"],
