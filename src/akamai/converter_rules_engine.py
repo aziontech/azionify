@@ -154,7 +154,7 @@ def assemble_request_rule(
     Returns:
         List[Dict[str, Any]]: List of rule engine resources.
     """
-    phase = "request" if rule_name != "default" else "default"
+    phase = "request"
     rule_description = rule.get("comments", "").replace("\n", " ").replace("\r", " ").replace("\"", "'")
     
     result_rules = []
@@ -174,11 +174,19 @@ def assemble_request_rule(
         # Check if no criteria found
         criteria = azion_criteria.get("request", None)
         if not criteria:
-            logging.warning(f"[rules_engine][assemble_request_rule] No criteria found for rule: '{rule_name}'. Skipping.")
-            return []
+            if rule_name == 'default':
+                criteria = azion_criteria.get("request_default", None)
+                logging.warning(f"[rules_engine][assemble_request_rule] No criteria found for rule: '{rule_name}'. Using default criteria.")
+            else:
+                logging.warning(f"[rules_engine][assemble_request_rule] No criteria found for rule: '{rule_name}'. Skipping.")
+                return []
 
-        random_number = str(random.randint(1000, 9999))
-        unique_rule_name = sanitize_name(rule_name) + "_" + random_number
+        if rule_name == 'default':
+            unique_rule_name = "default"
+            phase = "default"
+        else:
+            random_number = str(random.randint(1000, 9999))
+            unique_rule_name = sanitize_name(rule_name) + "_" + random_number
         
         resource = {
             "type": "azion_edge_application_rule_engine",
@@ -214,6 +222,9 @@ def assemble_request_rule(
                 combined_behaviors = [special_behavior]
             else:
                 combined_behaviors = standard_behaviors + [special_behavior]
+                if rule_name == 'default':
+                    unique_rule_name = "default"
+                    phase = "default"
             
             resource = {
                 "type": "azion_edge_application_rule_engine",
@@ -221,9 +232,9 @@ def assemble_request_rule(
                 "attributes": {
                     "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
                     "results": {
-                        "name": unique_rule_name,
+                        "name": "Default Rule" if phase == "default" else unique_rule_name,
                         "description": f"{rule_description} (Split rule {idx+1}/{len(special_behaviors)})",
-                        "phase": "request",
+                        "phase": phase,
                         "behaviors": combined_behaviors,
                         "criteria": criteria
                     },
