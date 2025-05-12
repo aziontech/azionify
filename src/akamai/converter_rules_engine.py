@@ -168,17 +168,16 @@ def assemble_request_rule(
             special_behaviors.append(behavior)
         else:
             standard_behaviors.append(behavior)
-    
-    # If there are no special behaviors, create a single rule with all behaviors
-    if not special_behaviors:
+
+    if standard_behaviors:
         # Check if no criteria found
         criteria = azion_criteria.get("request", None)
         if not criteria:
             if rule_name == 'default':
                 criteria = azion_criteria.get("request_default", None)
-                logging.warning(f"[rules_engine][assemble_request_rule] No criteria found for rule: '{rule_name}'. Using default criteria.")
+                logging.warning(f"[rules_engine][assemble_request_rule] Using default criteria for rule: '{rule_name}'.")
             else:
-                logging.warning(f"[rules_engine][assemble_request_rule] No criteria found for rule: '{rule_name}'. Skipping.")
+                logging.warning(f"[rules_engine][assemble_request_rule] No criteria found for rule: '{rule_name}'.")
                 return []
 
         if rule_name == 'default':
@@ -187,7 +186,7 @@ def assemble_request_rule(
         else:
             random_number = str(random.randint(1000, 9999))
             unique_rule_name = sanitize_name(rule_name) + "_" + random_number
-        
+
         resource = {
             "type": "azion_edge_application_rule_engine",
             "name": unique_rule_name, 
@@ -197,6 +196,35 @@ def assemble_request_rule(
                     "name": "Default Rule" if phase == "default" else unique_rule_name,
                     "description": rule_description,
                     "phase": phase,
+                    "behaviors": standard_behaviors,
+                    "criteria": criteria
+                },
+                "depends_on": depends_on
+            }
+        }
+        result_rules.append(resource)
+
+    
+    # If there are no special behaviors, create a single rule with all behaviors
+    if not special_behaviors:
+        # Check if no criteria found
+        criteria = azion_criteria.get("request", None)
+        if not criteria:
+            logging.warning(f"[rules_engine][assemble_request_rule] No criteria found for rule: '{rule_name}'. Skipping.")
+            return []
+
+        random_number = str(random.randint(1000, 9999))
+        unique_rule_name = sanitize_name(rule_name) + "_" + random_number
+        
+        resource = {
+            "type": "azion_edge_application_rule_engine",
+            "name": unique_rule_name, 
+            "attributes": {
+                "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
+                "results": {
+                    "name": unique_rule_name,
+                    "description": rule_description,
+                    "phase": "request",
                     "behaviors": request_behaviors,
                     "criteria": criteria
                 },
@@ -219,12 +247,6 @@ def assemble_request_rule(
             if not criteria:
                 criteria = azion_criteria.get("request_default", None)
                 logging.warning(f"[rules_engine][assemble_request_rule] Using default criteria for rule: '{rule_name}'.")
-                combined_behaviors = [special_behavior]
-            else:
-                combined_behaviors = standard_behaviors + [special_behavior]
-                if rule_name == 'default':
-                    unique_rule_name = "default"
-                    phase = "default"
             
             resource = {
                 "type": "azion_edge_application_rule_engine",
@@ -232,10 +254,10 @@ def assemble_request_rule(
                 "attributes": {
                     "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
                     "results": {
-                        "name": "Default Rule" if phase == "default" else unique_rule_name,
+                        "name": unique_rule_name,
                         "description": f"{rule_description} (Split rule {idx+1}/{len(special_behaviors)})",
-                        "phase": phase,
-                        "behaviors": combined_behaviors,
+                        "phase": "request",
+                        "behaviors": [special_behavior],
                         "criteria": criteria
                     },
                     "depends_on": depends_on

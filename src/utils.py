@@ -293,16 +293,29 @@ def parse_ttl(ttl_str: str) -> int:
 
 def resources_filter_by_type(resources: List[Dict[str, Any]], resource_type: str) -> List[Dict[str, Any]]:
     """
-    Filtra os objetos de 'resources' pelo campo 'type'.
+    Filter objects in 'resources' by the 'type' field.
 
-    Parâmetros:
-        resources (List[Dict[str, Any]]): Lista de objetos a ser filtrada.
-        resource_type (str): O valor do campo 'type' a ser pesquisado.
+    Parameters:
+        resources (List[Dict[str, Any]]): List of objects to be filtered.
+        resource_type (str): The value of the 'type' field to search for.
 
-    Retorna:
-        List[Dict[str, Any]]: Lista de objetos com o campo 'type' correspondente.
+    Returns:
+        List[Dict[str, Any]]: List of objects with the 'type' field corresponding to the search value.
     """
     return [resource for resource in resources if resource.get("type") == resource_type]
+
+def resources_filter_by_name(resources: List[Dict[str, Any]], name: str) -> List[Dict[str, Any]]:
+    """
+    Filter objects in 'resources' by the 'name' field.
+
+    Parameters:
+        resources (List[Dict[str, Any]]): List of objects to be filtered.
+        name (str): The value of the 'name' field to search for.
+
+    Returns:
+        List[Dict[str, Any]]: List of objects with the 'name' field corresponding to the search value.
+    """
+    return [resource for resource in resources if resource.get("name") == name]
 
 def find_function(function_map: List[Dict[str, Any]], policy_id: str) -> Optional[Dict[str, Any]]:
     """
