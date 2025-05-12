@@ -1,6 +1,6 @@
 from typing import Dict, Any
 import logging
-from utils import sanitize_name, write_indented, resources_filter_by_type
+from utils import sanitize_name, write_indented, resources_filter_by_type, resources_filter_by_name
 from io import StringIO
 import json
 
@@ -593,8 +593,15 @@ def write_terraform_file(filepath: str, config: Dict[str, Any]) -> None:
             # Write rules engine block
             rules_engines = resources_filter_by_type(resources, "azion_edge_application_rule_engine")
             if rules_engines:
+                default_rule_engine = resources_filter_by_name(rules_engines, "default")
+                if default_rule_engine:
+                    # Pegamos o primeiro item da lista se existir
+                    default_rule_engine = default_rule_engine[0] if default_rule_engine else None
+                    if default_rule_engine:
+                        write_rule_engine_block(f, default_rule_engine)
                 for rule_engine in rules_engines:
-                    write_rule_engine_block(f, rule_engine)
+                    if rule_engine.get("name","") != "default":
+                        write_rule_engine_block(f, rule_engine)
 
             # Write edge function block
             edge_functions = resources_filter_by_type(resources, "azion_edge_function")
