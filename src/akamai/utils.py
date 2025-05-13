@@ -391,7 +391,7 @@ def get_redirect_target(options: Dict[str, Any]) -> str:
                 other_path = f"{match.group(1)}"
             else:
                 other_path = f"{value[7::-2]}"
-            other_path = f'{other_path[:10]}[1]'
+            other_path = f"%%{{{other_path[:10]}[{1}]}}"
         else:
             other_path = replace_variables(options.get('destinationPathOther', ''))
         if not other_path:
