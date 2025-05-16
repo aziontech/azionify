@@ -169,7 +169,8 @@ def assemble_request_rule(
         else:
             standard_behaviors.append(behavior)
 
-    if standard_behaviors:
+
+    if len(standard_behaviors) > 0:
         # Check if no criteria found
         criteria = azion_criteria.get("request", None)
         if not criteria:
@@ -204,35 +205,7 @@ def assemble_request_rule(
         }
         result_rules.append(resource)
 
-    
-    # If there are no special behaviors, create a single rule with all behaviors
-    if not special_behaviors:
-        # Check if no criteria found
-        criteria = azion_criteria.get("request", None)
-        if not criteria:
-            logging.warning(f"[rules_engine][assemble_request_rule] No criteria found for rule: '{rule_name}'. Skipping.")
-            return []
-
-        random_number = str(random.randint(1000, 9999))
-        unique_rule_name = sanitize_name(rule_name) + "_" + random_number
-        
-        resource = {
-            "type": "azion_edge_application_rule_engine",
-            "name": unique_rule_name, 
-            "attributes": {
-                "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
-                "results": {
-                    "name": unique_rule_name,
-                    "description": rule_description,
-                    "phase": "request",
-                    "behaviors": request_behaviors,
-                    "criteria": criteria
-                },
-                "depends_on": depends_on
-            }
-        }
-        result_rules.append(resource)
-    else:
+    if  len(special_behaviors) > 0:
         # Check if no criteria found
         criteria = azion_criteria.get("request", None)
         if not criteria:
