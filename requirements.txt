@@ -1,6 +1,6 @@
 # Required libraries
 lark==1.2.2
 python_hcl2==7.2.0
-setuptools==78.1.0
+setuptools==80.7.1
 # Python tools
 pylint==3.3.7
