@@ -36,7 +36,7 @@ MAPPING = {
         "path": {
             "azion_condition": "$${uri}", 
             "azion_operator": lambda options: "matches" if is_positive_operator(options.get("matchOperator")) else "does_not_match",
-            "input_value": lambda values: r"(%s)" % "|".join(values).replace('/', r'\\/')
+            "input_value": lambda values: r"ˆ(%s)$" % "|".join(values).replace('/', r'\\/')
         },
         "hostname": {
             "name": "hostname",
