@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
 from utils import clean_and_parse_json, sanitize_name
 
 OPERATOR_MAP = {
@@ -331,6 +331,32 @@ def get_input_hostname(values: List[str]) -> str:
             pattern = value.replace('.', r'\\.')
         patterns.append(pattern)
     return r"^(%s)$" % "|".join(patterns)
+
+def format_file_extension_pattern(values: Union[List[str], str]) -> str:
+    """
+    Formats a list of file extensions into a regex pattern for matching file extensions.
+    
+    Args:
+        values: List of file extensions or a single extension string
+        
+    Returns:
+        str: Regex pattern that matches any of the provided file extensions
+    """
+    if isinstance(values, str):
+        values = [values]
+    return r"\\.(%s)(\\?.*)?$" % "|".join(values).replace('/', r'\\/')
+
+def format_path_pattern(values: List[str]) -> str:
+    """
+    Formats a list of path patterns into a regex pattern for path matching.
+    
+    Args:
+        values: List of path patterns
+        
+    Returns:
+        str: Regex pattern that matches any of the provided path patterns
+    """
+    return (r"^(%s)$" if not any(v.startswith('^') for v in values) else r"(%s)$") % "|".join(v.lstrip('^') for v in values).replace('/', r'\\/')
 
 def get_redirect_target(options: Dict[str, Any]) -> str:
     """
