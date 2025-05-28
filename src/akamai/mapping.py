@@ -2,7 +2,9 @@ from .utils import (
     replace_variables, 
     get_input_hostname, 
     get_redirect_target, 
-    is_positive_operator
+    is_positive_operator,
+    format_file_extension_pattern,
+    format_path_pattern
 )
 
 # Mapping for Akamai to Azion behavior/criteria conversions
@@ -31,12 +33,12 @@ MAPPING = {
         "fileExtension": {
             "azion_condition": "$${request_uri}}", 
             "azion_operator": "matches",
-            "input_value": lambda values: r"\\.(%s)(\\?.*)?$" % "|".join(values).replace('/', r'\\/')
+            "input_value": format_file_extension_pattern
         },
         "path": {
             "azion_condition": "$${uri}", 
             "azion_operator": lambda options: "matches" if is_positive_operator(options.get("matchOperator")) else "does_not_match",
-            "input_value": lambda values: (r"^(%s)$" if not any(v.startswith('^') for v in values) else r"(%s)$") % "|".join(v.lstrip('^') for v in values).replace('/', r'\\/')
+            "input_value": format_path_pattern
         },
         "hostname": {
             "name": "hostname",

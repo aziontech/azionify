@@ -71,7 +71,7 @@ def create_main_setting(
         "https_port": [443],
         "supported_ciphers": "TLSv1.2_2021",
         "minimum_tls_version": "tls_1_2",
-        "debug_rules": False,
+        "debug_rules": True,
         "caching": True,
         "edge_functions": True,
         "image_optimization": True,
