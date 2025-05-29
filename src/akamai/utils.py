@@ -378,6 +378,21 @@ def format_file_extension_pattern(values: Union[List[str], str]) -> str:
         # Default case (shouldn't normally happen)
         return r"(?:\\?.*)?$"
 
+def format_header_name(options: Dict[str, Any]) -> str:
+    """
+    Builds an HTTP header string in the format 'HeaderName: HeaderValue'
+
+    Args:
+        options (dict): Dictionary containing 'customHeaderName' and 'newHeaderValue' keys.
+
+    Returns:
+        str: Formatted header string in the form 'HeaderName:HeaderValue'.
+    """
+    header_name = options.get('customHeaderName', '').strip()
+    header_value = options.get('newHeaderValue', '').strip()
+    return f"\"{header_name}: {header_value}\""
+
+
 def format_path_pattern(values: List[str]) -> str:
     """
     Formats a list of path patterns into a regex pattern for path matching.

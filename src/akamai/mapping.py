@@ -4,7 +4,8 @@ from .utils import (
     get_redirect_target, 
     is_positive_operator,
     format_file_extension_pattern,
-    format_path_pattern
+    format_path_pattern,
+    format_header_name
 )
 
 # Mapping for Akamai to Azion behavior/criteria conversions
@@ -185,7 +186,7 @@ MAPPING = {
         "modifyOutgoingResponseHeader": {
             "azion_behavior": lambda options: "filter_response_header" if options.get("action").upper() == "DELETE" else "add_response_header",
             "target": {
-                "target": lambda options: f"\"{options.get('customHeaderName', '').strip()}\""
+                "target": format_header_name
             },
             "phase": "response",
             "akamai_behavior": "modifyOutgoingResponseHeader"
