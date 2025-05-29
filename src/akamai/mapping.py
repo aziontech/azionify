@@ -271,7 +271,7 @@ MAPPING = {
         "rewriteUrl": {
             "azion_behavior": "rewrite_request",
             "target": {
-                "target": lambda options: f"\"{replace_variables(options.get('targetUrl','')).strip()}\""
+                "target": lambda options: f"\"{replace_variables(options.get('targetUrl','$${uri}')).strip()}\""
             },
             "phase": "request",
             "akamai_behavior": "rewriteUrl"
