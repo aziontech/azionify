@@ -337,14 +337,46 @@ def format_file_extension_pattern(values: Union[List[str], str]) -> str:
     Formats a list of file extensions into a regex pattern for matching file extensions.
     
     Args:
-        values: List of file extensions or a single extension string
+        values: List of file extensions or a single extension string.
+                Special value "EMPTY_STRING" can be used to match URLs without file extensions.
         
     Returns:
-        str: Regex pattern that matches any of the provided file extensions
+        str: Regex pattern that matches any of the provided file extensions or URLs without extensions
+             when "EMPTY_STRING" is included.
     """
     if isinstance(values, str):
         values = [values]
-    return r"\\.(%s)(\\?.*)?$" % "|".join(values).replace('/', r'\\/')
+    
+    # Separate regular extensions from the special EMPTY_STRING
+    extensions = [v for v in values if v != "EMPTY_STRING"]
+    has_empty_string = "EMPTY_STRING" in values
+    
+    patterns = []
+    
+    # Add pattern for URLs with extensions
+    if extensions:
+        # Escape special regex characters in extensions
+        escaped_extensions = [re.escape(ext) for ext in extensions]
+        ext_pattern = r"\\.({})(\\?.*)?$".format("|".join(escaped_extensions))
+        patterns.append(ext_pattern)
+    
+    # Add pattern for URLs without extensions (EMPTY_STRING case)
+    if has_empty_string:
+        # This matches:
+        # - URLs ending with a slash: example.com/path/
+        # - URLs without a dot in the last path segment: example.com/path
+        # But not: example.com/path.ext or example.com/path.ext?param=value
+        empty_ext_pattern = r"(?<!/)(?:\\?.*)?$"
+        patterns.append(empty_ext_pattern)
+    
+    # If we have both patterns, combine them with OR (|)
+    if len(patterns) > 1:
+        return "|".join(f"({p})" for p in patterns)
+    elif patterns:
+        return patterns[0]
+    else:
+        # Default case (shouldn't normally happen)
+        return r"(?:\\?.*)?$"
 
 def format_path_pattern(values: List[str]) -> str:
     """
