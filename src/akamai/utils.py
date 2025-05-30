@@ -395,15 +395,24 @@ def format_header_name(options: Dict[str, Any]) -> str:
 
 def format_path_pattern(values: List[str]) -> str:
     """
-    Formats a list of path patterns into a regex pattern for path matching.
+    Formats a list of path patterns into a double-escaped regex pattern.
     
     Args:
-        values: List of path patterns
-        
+        values (List[str]): List of path patterns to format.
+    
     Returns:
-        str: Regex pattern that matches any of the provided path patterns
+        str: Double-escaped regex pattern.
     """
-    return (r"^(%s)$" if not any(v.startswith('^') for v in values) else r"(%s)$") % "|".join(v.lstrip('^') for v in values).replace('/', r'\\/')
+    def escape_and_convert(pattern: str) -> str:
+        if pattern.startswith('^'):
+            pattern = pattern[1:]
+        pattern = pattern.replace('*', '__WILDCARD__')
+        escaped = re.escape(pattern).replace('__WILDCARD__', '.*')
+        return escaped.replace('/', '\\\\/')
+
+    joined = "|".join(escape_and_convert(v) for v in values)
+    return f"^({joined})$"
+
 
 def get_redirect_target(options: Dict[str, Any]) -> str:
     """
