@@ -164,16 +164,18 @@ def process_rule_behaviors(
     context["rule_name"] = rule.get("name")
     context["index"] = index
     
+    # Process Origin first
+    origin_behavior = next(filter(lambda b: b.get('name') == 'origin', behaviors), None)
+    if origin_behavior:
+        origin = create_origin(azion_resources, origin_behavior, main_setting_name, origin_hostname, context["rule_name"])
+        if origin:
+            azion_resources.append(origin)
+            context["origin"] = origin
 
     for behavior in behaviors:
         behavior_name = behavior.get("name")
 
-        if behavior_name == "origin": # Origin
-            origin = create_origin(azion_resources, behavior, main_setting_name, origin_hostname, context["rule_name"])
-            if origin:
-                azion_resources.append(origin)
-                context["origin"] = origin
-        elif behavior_name == "caching": # Cache Settings
+        if behavior_name == "caching": # Cache Settings
             cache_setting.append(behavior) 
             cache_setting = create_cache_setting(azion_resources, cache_setting, main_setting_name, context["rule_name"], context)
             if cache_setting:

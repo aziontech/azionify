@@ -91,7 +91,7 @@ def extract_edge_hostname(akamai_config: dict) -> Optional[str]:
             for property_name, property_data in akamai_property.items():
                 hostnames = property_data.get("hostnames", [])
                 for hostname_entry in hostnames:
-                    if hostname_entry.get("cname_type") == "EDGE_HOSTNAME":
+                    if hostname_entry.get("cname_type","EDGE_HOSTNAME") in ["EDGE_HOSTNAME", "CUSTOM"]:
                         edge_hostname = hostname_entry.get("cname_to")
                         logging.info(f"Extracted edge_hostname: {edge_hostname} from hostnames")
                         return edge_hostname
