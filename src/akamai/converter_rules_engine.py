@@ -646,7 +646,7 @@ def behavior_capture_match_groups(
     regex_value = replace_variables(options.get('regex')).replace('/', r'\/').replace('.', r'\\.')
     random_number = random.randint(1000, 9999)
     captured_array = options.get("variableName",f"var{random_number}")[:10]
-    subject = map_variable(options.get("variableValue"))
+    subject = map_variable(options.get("variableValue","$${uri}"))
     azion_behavior = {
         "name": mapping["azion_behavior"],
         "enabled": True,
