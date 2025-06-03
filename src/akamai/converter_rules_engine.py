@@ -1,3 +1,4 @@
+from locale import normalize
 import logging
 import random
 from typing import Dict, List, Any, Set, Tuple, Optional
@@ -648,8 +649,7 @@ def behavior_capture_match_groups(
         return azion_behavior, None
 
     regex_value = replace_variables(options.get('regex')).replace('/', r'\/').replace('.', r'\\.')
-    random_number = random.randint(1000, 9999)
-    captured_array = options.get("variableName",f"var{random_number}")[:10]
+    captured_array = options.get("variableName",f"var{mapping['azion_behavior']}")[:10]
     subject = map_variable(options.get("variableValue","$${uri}"))
     azion_behavior = {
         "name": mapping["azion_behavior"],
@@ -667,7 +667,7 @@ def behavior_capture_match_groups(
 
     return azion_behavior, None
 
-def behavior_rewrite_request(options):
+def behavior_rewrite_request(options, name):
     behaviors = []
     option_behavior = options.get("behavior")
 
@@ -684,14 +684,13 @@ def behavior_rewrite_request(options):
         behaviors.append(azion_behavior)
     elif option_behavior == "REPLACE":
         regex_value = replace_variables(options.get('match')).replace('/', r'\\/').replace('.', r'\\.')
-        random_number = random.randint(1000, 9999)
-        captured_array = f"VAR{random_number}"[:10]
+        captured_array = sanitize_name(name).upper()[:10]
         subject = '$${request_uri}'
         behavior_match_group = {
             "name": "capture_match_groups",
             "enabled": True,
             "target": {
-                "captured_array": f'"{captured_array}"',
+                "captured_array": f"\"{captured_array}\"",
                 "subject": f'{subject}',
                 "regex": f"\"{regex_value}(.*)\"",
             },
@@ -703,7 +702,7 @@ def behavior_rewrite_request(options):
             "name": "rewrite_request",
             "enabled": True,
             "target": {
-                "target": f"\"{replace_variables(options.get('targetPath','$${uri}')).strip()}%{captured_array}[1]\""
+                "target": f"\"{replace_variables(options.get('targetPath','$${request_uri}')).strip()}%%{{{captured_array}[1]}}\""
             },
             "phase": "request",
             "akamai_behavior": "rewriteUrl_REPLACE"
@@ -723,8 +722,7 @@ def behavior_rewrite_request(options):
         behaviors.append(azion_behavior)
     elif option_behavior == "REMOVE":
         regex_value = "^(.*)" + f"{replace_variables(options.get('match')).replace('/', r'\\/').replace('.', r'\\.')}" + "(.*)$"
-        random_number = random.randint(1000, 9999)
-        captured_array = f"VAR{random_number}"[:10]
+        captured_array = sanitize_name(name).upper()[:10]
         subject = '$${request_uri}'
         behavior_match_group = {
             "name": "capture_match_groups",
@@ -742,7 +740,7 @@ def behavior_rewrite_request(options):
             "name": "rewrite_request",
             "enabled": True,
             "target": {
-                "target": f"\"{captured_array}[1]{captured_array}[2]\""
+                "target": f"\"%%{{{captured_array}[1]}}%%{{{captured_array}[2]}}\""
             },
             "phase": "request",
             "akamai_behavior": "rewriteUrl_PREPEND"
@@ -1041,7 +1039,7 @@ def process_behaviors(
 
         # Handle special behavior: rewrite_request
         if mapping["azion_behavior"] == "rewrite_request":
-            entries = behavior_rewrite_request(options)
+            entries = behavior_rewrite_request(options, rule_name)
             for item in entries:
                 # Create a unique key to track this behavior
                 unique_key = behavior_key(item)
