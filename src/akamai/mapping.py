@@ -1,5 +1,4 @@
 from .utils import (
-    replace_variables, 
     get_input_hostname, 
     get_redirect_target, 
     is_positive_operator,
@@ -271,7 +270,7 @@ MAPPING = {
         "rewriteUrl": {
             "azion_behavior": "rewrite_request",
             "target": {
-                "target": lambda options: f"\"{replace_variables(options.get('targetUrl','$${uri}')).strip()}\""
+                "target": ''
             },
             "phase": "request",
             "akamai_behavior": "rewriteUrl"

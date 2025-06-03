@@ -169,6 +169,10 @@ def assemble_request_rule(
         else:
             standard_behaviors.append(behavior)
 
+        # if only one space behavior found, so there's no need to create a separate rule for it
+        if len(special_behaviors) == 1:
+            standard_behaviors.append(special_behaviors[0])
+            special_behaviors = []
 
     if len(standard_behaviors) > 0:
         # Check if no criteria found
@@ -644,8 +648,7 @@ def behavior_capture_match_groups(
         return azion_behavior, None
 
     regex_value = replace_variables(options.get('regex')).replace('/', r'\/').replace('.', r'\\.')
-    random_number = random.randint(1000, 9999)
-    captured_array = options.get("variableName",f"var{random_number}")[:10]
+    captured_array = options.get("variableName",f"var{mapping['azion_behavior']}")[:10]
     subject = map_variable(options.get("variableValue","$${uri}"))
     azion_behavior = {
         "name": mapping["azion_behavior"],
@@ -662,6 +665,89 @@ def behavior_capture_match_groups(
     }
 
     return azion_behavior, None
+
+def behavior_rewrite_request(options, name):
+    behaviors = []
+    option_behavior = options.get("behavior")
+
+    if option_behavior == "REWRITE":
+        azion_behavior = {
+            "name": "rewrite_request",
+            "enabled": True,
+            "target": {
+                "target": f"\"{replace_variables(options.get('targetUrl','$${uri}')).strip()}\""
+            },
+            "phase": "request",
+            "akamai_behavior": "rewriteUrl_REWRITE"
+        }
+        behaviors.append(azion_behavior)
+    elif option_behavior == "REPLACE":
+        regex_value = replace_variables(options.get('match')).replace('/', r'\\/').replace('.', r'\\.')
+        captured_array = sanitize_name(name).upper()[:10]
+        subject = '$${request_uri}'
+        behavior_match_group = {
+            "name": "capture_match_groups",
+            "enabled": True,
+            "target": {
+                "captured_array": f"\"{captured_array}\"",
+                "subject": f'{subject}',
+                "regex": f"\"{regex_value}(.*)\"",
+            },
+            "phase": "request",
+            "akamai_behavior": "rewriteUrl_REPLACE"
+        }
+        behaviors.append(behavior_match_group)
+        behavior_rewrite = {
+            "name": "rewrite_request",
+            "enabled": True,
+            "target": {
+                "target": f"\"{replace_variables(options.get('targetPath','$${request_uri}')).strip()}%%{{{captured_array}[1]}}\""
+            },
+            "phase": "request",
+            "akamai_behavior": "rewriteUrl_REPLACE"
+        }
+        behaviors.append(behavior_rewrite)
+    elif option_behavior == "PREPEND":
+        newurl = options.get("targetPathPrepend","") + "$${request_uri}"
+        azion_behavior = {
+            "name": "rewrite_request",
+            "enabled": True,
+            "target": {
+                "target": f"\"{newurl}\""
+            },
+            "phase": "request",
+            "akamai_behavior": "rewriteUrl_PREPEND"
+        }
+        behaviors.append(azion_behavior)
+    elif option_behavior == "REMOVE":
+        match_value = replace_variables(options.get('match', ''))
+        escaped_match = match_value.replace('/', r'\/').replace('.', r'\.')
+        regex_value = f"^(.*){escaped_match}(.*)$"
+        captured_array = sanitize_name(name).upper()[:10]
+        subject = '$${request_uri}'
+        behavior_match_group = {
+            "name": "capture_match_groups",
+            "enabled": True,
+            "target": {
+                "captured_array": f'"{captured_array}"',
+                "subject": f'{subject}',
+                "regex": f"\"{regex_value}\"",
+            },
+            "phase": "request",
+            "akamai_behavior": "rewriteUrl_REPLACE"
+        }
+        behaviors.append(behavior_match_group)
+        azion_behavior = {
+            "name": "rewrite_request",
+            "enabled": True,
+            "target": {
+                "target": f"\"%%{{{captured_array}[1]}}%%{{{captured_array}[2]}}\""
+            },
+            "phase": "request",
+            "akamai_behavior": "rewriteUrl_PREPEND"
+        }
+        behaviors.append(azion_behavior)
+    return behaviors
 
 def process_forward_rewrite(context,
                            name, 
@@ -951,6 +1037,20 @@ def process_behaviors(
                 logging.warning(f"[rules_engine][process_behaviors] No Edge Function mapping found for Cloudlet on behavior: '{ak_behavior_name}' Skipping.")
 
             continue
+
+        # Handle special behavior: rewrite_request
+        if mapping["azion_behavior"] == "rewrite_request":
+            entries = behavior_rewrite_request(options, rule_name)
+            for item in entries:
+                # Create a unique key to track this behavior
+                unique_key = behavior_key(item)
+                if unique_key in seen_behaviors:
+                    logging.debug(f"[rules_engine][process_behaviors] already processed behavior {behavior_name}, key {unique_key}. Skipping.")
+                    continue
+
+                azion_behaviors.append(item)
+                seen_behaviors.add(unique_key)
+            continue            
 
         # Skip if we've already processed this behavior type
         if behavior_name in seen_behaviors:
