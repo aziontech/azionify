@@ -408,7 +408,7 @@ def format_path_pattern(values: List[str]) -> str:
             pattern = pattern[1:]
         pattern = pattern.replace('*', '__WILDCARD__')
         escaped = re.escape(pattern).replace('__WILDCARD__', '.*')
-        return escaped.replace('/', '\\\\/')
+        return escaped.replace('/', '\\\\/').replace('\.', '\\\\.').replace('\-', '\\\\-')
 
     joined = "|".join(escape_and_convert(v) for v in values)
     return f"^({joined})$"
