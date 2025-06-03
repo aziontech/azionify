@@ -390,6 +390,8 @@ def format_header_name(options: Dict[str, Any]) -> str:
     """
     header_name = options.get('customHeaderName', '').strip()
     header_value = options.get('newHeaderValue', '').strip()
+    if header_value == '':
+        return f"\"{header_name}\""
     return f"\"{header_name}: {header_value}\""
 
 
