@@ -710,13 +710,12 @@ def behavior_rewrite_request(options):
         }
         behaviors.append(behavior_rewrite)
     elif option_behavior == "PREPEND":
-        url = f"{replace_variables(options.get('match')).replace('/', r'\\/').replace('.', r'\\.')}(.*)"
-        prepend = options.get("targetPathPrepend","")
+        newurl = options.get("targetPathPrepend","") + "$${request_uri}"
         azion_behavior = {
             "name": "rewrite_request",
             "enabled": True,
             "target": {
-                "target": f"\"{prepend}{url}\""
+                "target": f"\"{newurl}\""
             },
             "phase": "request",
             "akamai_behavior": "rewriteUrl_PREPEND"

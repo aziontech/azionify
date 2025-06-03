@@ -1,5 +1,4 @@
 from .utils import (
-    replace_variables, 
     get_input_hostname, 
     get_redirect_target, 
     is_positive_operator,
