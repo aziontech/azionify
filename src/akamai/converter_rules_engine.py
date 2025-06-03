@@ -722,7 +722,7 @@ def behavior_rewrite_request(options):
         }
         behaviors.append(azion_behavior)
     elif option_behavior == "REMOVE":
-        regex_value = f"^(.*){replace_variables(options.get('match')).replace('/', r'\\/').replace('.', r'\\.')}(.*)$"
+        regex_value = "^(.*)" + f"{replace_variables(options.get('match')).replace('/', r'\\/').replace('.', r'\\.')}" + "(.*)$"
         random_number = random.randint(1000, 9999)
         captured_array = f"VAR{random_number}"[:10]
         subject = '$${request_uri}'
