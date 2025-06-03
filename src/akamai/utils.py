@@ -408,10 +408,10 @@ def format_path_pattern(values: List[str]) -> str:
             pattern = pattern[1:]
         pattern = pattern.replace('*', '__WILDCARD__')
         escaped = re.escape(pattern).replace('__WILDCARD__', '.*')
-        return escaped.replace('/', '\\\\/').replace('\.', '\\\\.').replace('\-', '\\\\-')
+        return escaped.replace('/', r'\\/').replace(r'\.', r'\\.').replace(r'\-', r'\\-')
 
     joined = "|".join(escape_and_convert(v) for v in values)
-    return f"^({joined})$"
+    return rf"^({joined})$"
 
 
 def get_redirect_target(options: Dict[str, Any]) -> str:
