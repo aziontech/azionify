@@ -683,7 +683,7 @@ def behavior_rewrite_request(options):
         }
         behaviors.append(azion_behavior)
     elif option_behavior == "REPLACE":
-        regex_value = f"{replace_variables(options.get('match')).replace('/', r'\\/').replace('.', r'\\.')}(.*)"
+        regex_value = replace_variables(options.get('match')).replace('/', r'\\/').replace('.', r'\\.')
         random_number = random.randint(1000, 9999)
         captured_array = f"VAR{random_number}"[:10]
         subject = '$${request_uri}'
@@ -693,7 +693,7 @@ def behavior_rewrite_request(options):
             "target": {
                 "captured_array": f'"{captured_array}"',
                 "subject": f'{subject}',
-                "regex": f"\"{regex_value}\"",
+                "regex": f"\"{regex_value}(.*)\"",
             },
             "phase": "request",
             "akamai_behavior": "rewriteUrl_REPLACE"
