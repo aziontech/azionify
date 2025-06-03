@@ -1,4 +1,3 @@
-from locale import normalize
 import logging
 import random
 from typing import Dict, List, Any, Set, Tuple, Optional
@@ -721,7 +720,9 @@ def behavior_rewrite_request(options, name):
         }
         behaviors.append(azion_behavior)
     elif option_behavior == "REMOVE":
-        regex_value = "^(.*)" + f"{replace_variables(options.get('match')).replace('/', r'\\/').replace('.', r'\\.')}" + "(.*)$"
+        match_value = replace_variables(options.get('match', ''))
+        escaped_match = match_value.replace('/', r'\/').replace('.', r'\.')
+        regex_value = f"^(.*){escaped_match}(.*)$"
         captured_array = sanitize_name(name).upper()[:10]
         subject = '$${request_uri}'
         behavior_match_group = {
