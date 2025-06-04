@@ -169,10 +169,10 @@ def assemble_request_rule(
         else:
             standard_behaviors.append(behavior)
 
-        # if only one space behavior found, so there's no need to create a separate rule for it
-        if len(special_behaviors) == 1:
-            standard_behaviors.append(special_behaviors[0])
-            special_behaviors = []
+    # if only one space behavior found, so there's no need to create a separate rule for it
+    if len(special_behaviors) == 1:
+        standard_behaviors.append(special_behaviors[0])
+        special_behaviors = []
 
     if len(standard_behaviors) > 0:
         # Check if no criteria found
