@@ -989,6 +989,9 @@ def process_behaviors(
                 
                 # Create edge function instance reference
                 instance_name = sanitize_name(f"{rule_name}_{function_name}_instance")
+                environment = context.get("environment", "production")
+                if environment != "production":
+                    instance_name = f"{instance_name}_{environment}"
                 edge_function_instance = create_edge_function_instance(
                     main_setting_name,
                     instance_name,

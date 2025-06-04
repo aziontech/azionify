@@ -68,6 +68,8 @@ def create_cache_setting(
     if context is None:
         context = {}
 
+    environment = context.get("environment", "production")
+
     # Extract and validate caching behavior
     caching_behavior = next((rule['options'] for rule in rules if rule.get("name") == "caching"), None)
     if not caching_behavior:
@@ -75,6 +77,8 @@ def create_cache_setting(
         return None
 
     name = sanitize_name(cache_name if cache_name else caching_behavior.get('name', 'default_caching'))
+    if environment != "production":
+        name = f"{name}_{environment}"
     logging.info(f"Creating cache setting for rule: {name}")
 
     # Extract and validate TTL
