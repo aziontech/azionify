@@ -46,6 +46,7 @@ def generate_azion_config(akamai_config: dict) -> dict:
                 "edge_hostname": edge_hostname,
                 "origin_hostname": origin_hostname,
                 "function_map": akamai_config.get("function_map"),
+                "environment": environment,
                 "context": akamai_config.get("context", {})
             }
         })

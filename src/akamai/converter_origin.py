@@ -2,7 +2,7 @@ import logging
 import random
 from typing import Dict, Any, Optional
 from azion_resources import AzionResource
-from utils import sanitize_name
+from utils import sanitize_name, resources_filter_by_type
 from akamai.utils import map_origin_protocol_policy, map_origin_type, map_forward_host_header
 
 
@@ -41,6 +41,8 @@ def create_origin(
         connection_timeout = options.get("connection_timeout", 60)
         timeout_between_bytes = options.get("timeout_between_bytes", 120)
         host_header = map_forward_host_header(options)
+        global_settings = resources_filter_by_type(azion_resources.get_azion_resources(), "global_settings")
+        environment = global_settings[0].get("attributes", {}).get("environment", "production")
 
         if not hostname or hostname == "placeholder.example.com":
             logging.warning(f"Hostname not properly set. Using placeholder: {hostname}")
@@ -68,6 +70,8 @@ def create_origin(
         # Construct the origin resource
         random_number = str(random.randint(1000, 9999))
         name = sanitize_name(name +"_"+ host_header + "_" + random_number if name else origin_attributes.get("name", "Default Origin"))
+        if environment != "production":
+            name = f"{name}_{environment}"
         origin_resource = {
             "type": "azion_edge_application_origin",
             "name": name,
