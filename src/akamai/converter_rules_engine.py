@@ -1,5 +1,4 @@
 import logging
-import random
 from typing import Dict, List, Any, Set, Tuple, Optional
 from azion_resources import AzionResource
 from akamai.mapping import MAPPING
