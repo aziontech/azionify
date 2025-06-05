@@ -12,7 +12,7 @@ from akamai.utils import (
     behavior_key
 )
 from akamai.converter_edge_function_instance import create_edge_function_instance
-from utils import sanitize_name, find_function
+from utils import sanitize_name, find_function, compact_and_sanitize
 
 DEFAULT_CRITERIA = {
     "name": "default",
@@ -48,9 +48,11 @@ def create_rule_engine(
         List[Dict[str, Any]]: Azion rule engine resource
     """
     resources = []
-    rule_name = name if name else rule.get("name", "Unnamed Rule")
     index = context.get("rule_index", 0)
+    rule_name = name if name else rule.get("name", f"Unnamed Rule_{index}")
     main_setting_name = context.get("main_setting_name", "unnamed")
+    if rule_name != "default":
+        rule_name = f'{compact_and_sanitize(rule_name)}_{index}'
 
     logging.info(f"[rules_engine] Processing rule: '{rule_name}' with index {index}")
 
@@ -103,19 +105,20 @@ def create_rule_engine(
                 if rules:
                     for rule in rules:
                         resources.append(rule)
-                        logging.info(f"[rules_engine] Rule engine resource created for rule: '{rule.get('name')}'")
+                        logging.info(f"[rules_engine] Rule engine resource (request) created for rule: '{rule.get('name')}'")
 
             # Create response phase rule
             if len(response_behaviors) > 0:
                 resource = assemble_response_rule(processed_rule, 
                                                 rule_name, 
+                                                index,
                                                 main_setting_name, 
                                                 azion_criteria, 
                                                 response_behaviors, 
                                                 depends_on)
                 if resource:
                     resources.append(resource)
-                    logging.info(f"[rules_engine] Rule engine resource created for rule: '{rule_name}'")
+                    logging.info(f"[rules_engine] Rule engine resource (response) created for rule: '{rule_name}'")
 
             # Enable image optimization if necessary
             if "imageManager" in behaviors_names:
@@ -186,19 +189,15 @@ def assemble_request_rule(
                 return []
 
         if rule_name == 'default':
-            unique_rule_name = "default"
             phase = "default"
-        else:
-            random_number = str(random.randint(1000, 9999))
-            unique_rule_name = sanitize_name(rule_name) + "_" + random_number
 
         resource = {
             "type": "azion_edge_application_rule_engine",
-            "name": unique_rule_name, 
+            "name": rule_name, 
             "attributes": {
                 "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
                 "results": {
-                    "name": "Default Rule" if phase == "default" else unique_rule_name,
+                    "name": "Default Rule" if phase == "default" else rule_name,
                     "description": rule_description,
                     "phase": phase,
                     "behaviors": standard_behaviors,
@@ -217,9 +216,8 @@ def assemble_request_rule(
         
         # Create a rule for each special behavior, combined with all standard behaviors
         for idx, special_behavior in enumerate(special_behaviors):
-            random_number = str(random.randint(1000, 9999))
-            suffix = f"_sp{idx+1}_{random_number}"
-            unique_rule_name = sanitize_name(rule_name) + suffix
+            suffix = f"_sp{idx+1}"
+            unique_rule_name = rule_name + suffix
             
             if not criteria:
                 criteria = azion_criteria.get("request_default", None)
@@ -232,7 +230,7 @@ def assemble_request_rule(
                     "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
                     "results": {
                         "name": unique_rule_name,
-                        "description": f"{rule_description} (Split rule {idx+1}/{len(special_behaviors)})",
+                        "description": f"{rule_description} (Rule '{rule_name}' split {idx+1}/{len(special_behaviors)})",
                         "phase": "request",
                         "behaviors": [special_behavior],
                         "criteria": criteria
@@ -247,6 +245,7 @@ def assemble_request_rule(
 def assemble_response_rule(
         rule: Dict[str, Any],
         rule_name: str,
+        index: int,
         main_setting_name: str,
         azion_criteria: Dict[str, Any],
         behaviors: List[Dict[str, Any]],
@@ -268,9 +267,9 @@ def assemble_response_rule(
     """
     
     behavior_names = "_".join(sorted(set(b.get("name", "") for b in behaviors)))
-    name = sanitize_name(f"{rule_name}_{behavior_names}")
-    random_number = str(random.randint(1000, 9999))
-    unique_rule_name = sanitize_name(name) + "_" + random_number
+    behavior_names = compact_and_sanitize(behavior_names, 30)
+    name = compact_and_sanitize(rule_name, 60)
+    unique_rule_name = f"{name}_{behavior_names}_{index}"
 
     # Find criteria for the behavior
     criterias = azion_criteria.get("response", {}).get("entries")
@@ -823,6 +822,7 @@ def process_behaviors(
     cache_policy_options = {}  # Collect all cache policy related options
     depends_on = set()
     parent_rule_name = context.get("parent_rule_name", rule_name)
+    rule_index = context.get("rule_index", 0)
 
     logging.info(f"[rules_engine][process_behaviors] Rule = '{rule_name}', Parent rule = '{parent_rule_name}'")
     logging.info(f'[rules_engine][process_behaviors] Processing {len(behaviors)} behaviors')
@@ -1025,8 +1025,9 @@ def process_behaviors(
 
                     # Handle special case for forwardRewrite
                     if mapping.get("akamai_behavior") == "forwardRewrite":
+                        forward_rewrite_name = compact_and_sanitize(f"{rule_name}_{rule_index}_{function_name}")
                         resource = process_forward_rewrite(context,
-                                                         f"{rule_name}_{function_name}",
+                                                         forward_rewrite_name,
                                                          main_setting_name,
                                                          depends_on)
                         if resource:
