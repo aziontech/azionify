@@ -168,6 +168,43 @@ def sanitize_name(name: str) -> str:
         
     return sanitized
 
+def compact_and_sanitize(name: str, max_length: int = 90) -> str:
+    """
+    Compact and sanitize a long path-like string.
+    
+    Args:
+        name (str): Original name.
+        max_length (int): Max allowed length.
+        
+    Returns:
+        str: Sanitized and compacted name.
+    """
+    def compact(name: str) -> str:
+        if len(name) <= max_length:
+            return name
+        
+        parts = name.strip('/').split('/')
+        if len(parts) <= 2:
+            return name[:max_length]
+        
+        prefix = parts[0]
+        suffix = parts[-1]
+        
+        # Reserve space for prefix + "_cut_" + suffix
+        separator = "_cut_"
+        available = max_length - len(separator)
+        
+        max_prefix = available // 2
+        max_suffix = available - max_prefix
+        
+        prefix = prefix[:max_prefix]
+        suffix = suffix[-max_suffix:]
+        
+        return f"{prefix}{separator}{suffix}"
+
+    compacted = compact(name)
+    return sanitize_name(compacted)
+
 def clean_and_parse_json(json_string: str) -> Optional[Any]:
     """
     Clean and parse a JSON or HCL string.
