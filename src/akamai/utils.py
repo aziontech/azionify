@@ -397,7 +397,7 @@ def format_header_name(options: Dict[str, Any]) -> str:
 
 def format_path_pattern(values: List[str]) -> str:
     """
-    Formats a list of path patterns into a double-escaped regex pattern.
+    Formats a list of uri path patterns into a double-escaped regex pattern.
     
     Args:
         values (List[str]): List of path patterns to format.
@@ -408,9 +408,16 @@ def format_path_pattern(values: List[str]) -> str:
     def escape_and_convert(pattern: str) -> str:
         if pattern.startswith('^'):
             pattern = pattern[1:]
+        pattern = pattern.rstrip('\r')
         pattern = pattern.replace('*', '__WILDCARD__')
         escaped = re.escape(pattern).replace('__WILDCARD__', '.*')
-        return escaped.replace('/', r'\\/').replace(r'\.', r'\\.').replace(r'\-', r'\\-')
+
+        escaped = escaped.replace('/', r'\\/')
+        escaped = escaped.replace(r'\.', r'\\.')
+        escaped = escaped.replace(r'\-', r'\\-')
+        escaped = escaped.replace(r'\&', r'\\&')
+        escaped = escaped.replace(r'\?', r'\\?')
+        return escaped
 
     joined = "|".join(escape_and_convert(v) for v in values)
     return rf"^({joined})$"
