@@ -7,11 +7,16 @@ from akamai.utils import (
     map_origin_type,
     replace_variables,
     map_operator,
-    map_variable,
     behavior_key
 )
 from akamai.converter_edge_function_instance import create_edge_function_instance
-from utils import sanitize_name, find_function, compact_and_sanitize
+from utils import (
+    sanitize_name, 
+    find_function, 
+    compact_and_sanitize, 
+    normalize_path_regex, 
+    transform_expression
+)
 
 DEFAULT_CRITERIA = {
     "name": "default",
@@ -75,7 +80,7 @@ def create_rule_engine(
             # Process behaviors and criteria
             azion_behaviors, depends_on_behaviors = process_behaviors(azion_resources, behaviors, context, rule_name)
             behaviors_names = [behavior.get("name") for behavior in behaviors]
-            azion_criteria = process_criteria(criteria, behaviors_names, rule_condition)
+            azion_criteria = process_criteria(rule, criteria, behaviors_names, rule_condition)
 
             # Handling depends_on
             depends_on = [f"azion_edge_application_main_setting.{main_setting_name}"]
@@ -412,6 +417,7 @@ def process_criteria_default(behaviors_names: List[str]) -> Dict[str, Any]:
     return azion_criteria
 
 def process_criteria(
+        rule: Dict[str, Any],
         criteria: List[Dict[str, Any]],
         behaviors_names: List[str],
         rule_condition: str
@@ -447,7 +453,7 @@ def process_criteria(
             logging.warning(f"No mapping found for criterion: {name}. Skipping.")
             continue
         # Map Akamai's criteriaMustSatisfy to Azion's conditional
-        criteria_has_condition = criterion.get("criteriaMustSatisfy", "one")
+        criteria_has_condition = rule.get("criteriaMustSatisfy", "one")
         group_conditional = CONDITIONAL_MAP.get(criteria_has_condition, "one") if index == 0 else CONDITIONAL_MAP.get(rule_condition, "and") 
 
         try:
@@ -502,12 +508,18 @@ def process_criteria(
             logging.error(f"Error processing criterion {name}: {str(e)}")
 
     # Assemble criteria groups
-    if request_entries:
+    if len(request_entries) > 0:
+        if len(request_entries) == 1:
+            request_entries[0]["conditional"] = "if"
+
         azion_criteria["request"] = {"entries": request_entries}
-    if response_entries:
+    if len(response_entries) > 0:
+        if len(response_entries) == 1:
+            response_entries[0]["conditional"] = "if"
+
         azion_criteria["response"] = {"entries": response_entries}
 
-    if not azion_criteria and not response_entries:
+    if not azion_criteria.get("request") and not azion_criteria.get("response"):
         azion_criteria = process_criteria_default(behaviors_names)
 
     return azion_criteria
@@ -622,7 +634,7 @@ def behavior_capture_match_groups(
         options: Dict[str, Any],
         mapping: Dict[str, Any],
         behavior: Dict[str, Any]
-    ) -> Tuple[Dict[str, Any], str]:
+    ) -> List[Dict[str, Any]]:
     """
     Handles capture match groups dependencies for a behavior.
 
@@ -632,9 +644,9 @@ def behavior_capture_match_groups(
         behavior (Dict[str, Any]): The behavior dictionary containing the behavior information.
 
     Returns:
-        Tuple[Dict[str, Any], str]: A tuple containing the Azion behavior and capture match groups reference.
+        List[Dict[str, Any]]: A list of Azion behaviors.
     """
-    azion_behavior = None
+    azion_behaviors = []
 
     required_fields = {
         "captured_array": options.get("variableName"),
@@ -643,11 +655,14 @@ def behavior_capture_match_groups(
     missing_fields = {k: v for k, v in required_fields.items() if not v}
     if missing_fields:
         logging.warning(f"Behavior '{mapping['azion_behavior']}' is missing required fields: {missing_fields}")
-        return azion_behavior, None
+        return azion_behaviors
 
     regex_value = replace_variables(options.get('regex')).replace('/', r'\/').replace('.', r'\\.')
-    captured_array = options.get("variableName",f"var{mapping['azion_behavior']}")[:10]
-    subject = map_variable(options.get("variableValue","$${uri}"))
+    captured_array = replace_variables(options.get("variableName",f"var{mapping['azion_behavior']}"))
+    captured_array = captured_array[:10]
+    subject = replace_variables(options.get("variableValue","$${uri}"))
+    print(f'$$$$$$$$$$ DBG captured_array={captured_array}, regex_value={regex_value}, subject={subject}')
+    regex_value = normalize_path_regex(regex_value)
     azion_behavior = {
         "name": mapping["azion_behavior"],
         "enabled": True,
@@ -658,11 +673,52 @@ def behavior_capture_match_groups(
         "target": {
             "captured_array": f'"{captured_array}"',
             "subject": f'{subject}',
-            "regex": f"\"(.*)\\\\/{regex_value}\"",
+            "regex": f"\"{regex_value}\"",
         }
     }
+    azion_behaviors.append(azion_behavior)
 
-    return azion_behavior, None
+    if options.get('transform','').upper() == 'SUBSTITUTE':
+        target = transform_expression(options.get('replacement',f'{captured_array}{1}'), captured_array)
+        azion_behavior = {
+            "name": 'add_request_header',
+            "enabled": True,
+            "description": behavior.get(
+                "description", 
+                "Behavior add_request_header, variableName: " + captured_array
+            ),
+            "phase": "request",
+            "target": {
+                "target": f'\"{captured_array}: {target}\"'
+            }
+        }
+        azion_behaviors.append(azion_behavior)
+        azion_behaviors.append({
+            "name": "setvar",
+            "var": captured_array, 
+            "value": f'$${{http_{captured_array}}}'
+        })
+    elif options.get('transform','').upper() in ['NONE','TRIM']:
+        azion_behavior = {
+            "name": 'add_request_header',
+            "enabled": True,
+            "description": behavior.get(
+                "description", 
+                "Behavior add_request_header, variableName: " + captured_array
+            ),
+            "phase": "request",
+            "target": {
+                "target": f'\"{captured_array}: {options.get("variableValue", "")}\"'
+            }
+        }
+        azion_behaviors.append(azion_behavior)
+        azion_behaviors.append({
+            "name": "setvar",
+            "var": captured_array, 
+            "value": f'$${{http_{captured_array}}}'
+        })
+
+    return azion_behaviors
 
 def behavior_rewrite_request(options, name):
     behaviors = []
@@ -822,6 +878,7 @@ def process_behaviors(
     depends_on = set()
     parent_rule_name = context.get("parent_rule_name", rule_name)
     rule_index = context.get("rule_index", 0)
+    context['envvar'] = None
 
     logging.info(f"[rules_engine][process_behaviors] Rule = '{rule_name}', Parent rule = '{parent_rule_name}'")
     logging.info(f'[rules_engine][process_behaviors] Processing {len(behaviors)} behaviors')
@@ -835,6 +892,7 @@ def process_behaviors(
 
         mapping = MAPPING["behaviors"][ak_behavior_name]
         options = behavior.get("options", {})
+        options['context'] = context
 
         # Handle behavior name
         if callable(mapping.get("azion_behavior")):
@@ -956,15 +1014,20 @@ def process_behaviors(
 
         # Handle special behavior: capture_match_groups
         if mapping["azion_behavior"] == "capture_match_groups":
-            azion_behavior, _ = behavior_capture_match_groups(options, mapping, behavior)
-            if azion_behavior:
+            behaviors = behavior_capture_match_groups(options, mapping, behavior)
+            for entry in behaviors:
+                if entry.get("name") == "setvar":
+                    context['envvar'] = entry
+                    print(f"Set variable '{entry['var']}' in rule '{rule_name}' processing context")
+                    continue
+
                 # Create a unique key to track this behavior
-                unique_key = behavior_key(azion_behavior)
+                unique_key = behavior_key(entry)
                 if unique_key in seen_behaviors:
                     logging.debug(f"[rules_engine][process_behaviors] already processed behavior {behavior_name}, key {unique_key}. Skipping.")
                     continue
 
-                azion_behaviors.append(azion_behavior)
+                azion_behaviors.append(entry)
                 seen_behaviors.add(unique_key)
             continue
 
