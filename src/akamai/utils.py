@@ -38,11 +38,24 @@ AKAMAI_TO_AZION_MAP = {
     "AK_CLIENT_ACCEPT_ENCODING": "$${http_accept_encoding}",
     "AK_CLIENT_ACCEPT_CHARSET": "$${http_accept_charset}",
     "AK_CLIENT_COOKIE": "$${cookie_name}",
-    "AK_CLIENT_REFERER": "$${http_referer}",
-    "PMUSER_REDIR": "$${variable}",
-    "PMUSER_REDIR2": "$${variable}",
+    "AK_CLIENT_REFERER": "$${http_referer}"
     # Add more mappings as needed...
 }
+
+HTTP_HEADERS = {
+    "CACHE_CONTROL": "Cache-Control",
+    "CONTENT_DISPOSITION": "Content-Disposition",
+    "CONTENT_TYPE": "Content-Type",
+    "P3P": "P3P",
+    "PRAGMA": "Pragma",
+    "ACCESS_CONTROL_ALLOW_ORIGIN": "Access-Control-Allow-Origin",
+    "ACCESS_CONTROL_ALLOW_METHODS": "Access-Control-Allow-Methods",
+    "ACCESS_CONTROL_ALLOW_HEADERS": "Access-Control-Allow-Headers",
+    "ACCESS_CONTROL_EXPOSE_HEADERS": "Access-Control-Expose-Headers",
+    "ACCESS_CONTROL_ALLOW_CREDENTIALS": "Access-Control-Allow-Credentials",
+    "ACCESS_CONTROL_MAX_AGE": "Access-Control-Max-Age"
+}
+
 
 def get_main_setting_name(akamai_config: dict) -> str:
     """
@@ -180,7 +193,8 @@ def map_variable(value: str) -> str:
         value = value.replace("{{user.", "").replace("}}", "")
 
     # Get the appropriate mapping for the variable or return the original value as a fallback
-    return AKAMAI_TO_AZION_MAP.get(value, value)
+    variable = AKAMAI_TO_AZION_MAP.get(value, value)
+    return variable
 
 def replace_variables(input_string: str) -> str:
     """
@@ -198,13 +212,17 @@ def replace_variables(input_string: str) -> str:
     # Function to replace the matched variable with its mapped Azion value
     def replace_match(match):
         variable = match.group(0)
-        return map_variable(variable)
+        value = map_variable(variable)
+        return value
 
     # Replace all occurrences of Akamai variables in the string using the regex pattern
     modified_string = re.sub(pattern, replace_match, input_string)
+    if modified_string.startswith('PMUSER_'):
+        modified_string = modified_string.removeprefix('PMUSER_')
 
     # Return the modified string, or the original if no replacements were made
-    return modified_string if modified_string != input_string else input_string
+    value = modified_string if modified_string != input_string else input_string
+    return value
 
 def map_origin_type(akamai_origin_type: str) -> str:
     """
@@ -389,9 +407,12 @@ def format_header_name(options: Dict[str, Any]) -> str:
         str: Formatted header string in the form 'HeaderName:HeaderValue'.
     """
     header_name = options.get('customHeaderName', '').strip()
+    if header_name == '':
+        header_name = HTTP_HEADERS.get(options.get('standardModifyHeaderName',''), '')
     header_value = options.get('newHeaderValue', '').strip()
     if header_value == '':
-        return f"\"{header_name}\""
+        header_value = options.get('headerValue','')
+
     return f"\"{header_name}: {header_value}\""
 
 
@@ -440,6 +461,8 @@ def get_redirect_target(options: Dict[str, Any]) -> str:
     Returns:
         str: URL template string wrapped in double quotes
     """
+    envvar = options.get("context", {}).get("envvar")
+
     # Handle protocol
     protocol = options.get('destinationProtocol', 'SAME_AS_REQUEST')
     scheme = {
@@ -477,14 +500,12 @@ def get_redirect_target(options: Dict[str, Any]) -> str:
     elif path_type == 'OTHER':
         value = options.get('destinationPathOther','')
         if value.startswith('{{user.'):
-            match = re.search(r"\{\{user\.(.*?)\}\}", value)
-            if match:
-                other_path = f"{match.group(1)}"
-            else:
-                other_path = f"{value[7::-2]}"
-            other_path = f"%%{{{other_path[:10]}[{1}]}}"
+            other_path = envvar.get('value', f"%%{{{value[:10]}[{1}]}}")
         else:
-            other_path = replace_variables(options.get('destinationPathOther', ''))
+            if envvar:
+                other_path = envvar.get('value')
+            else:
+                other_path = replace_variables(options.get('destinationPathOther', ''))
         if not other_path:
             path = '$${uri}'
             query_string = '$${args}' if options.get('queryString') == 'APPEND' else ''

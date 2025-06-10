@@ -430,3 +430,44 @@ def get_behavior_config(behavior_name: str, args: List[Dict[str, Any]]) -> Dict[
         }
     
     return {}
+
+def is_regex(pattern: str) -> bool:
+    """
+    Check if the given string is a valid regular expression.
+
+    Args:
+        pattern (str): The string to check.
+
+    Returns:
+        bool: True if it is a valid regex, False otherwise.
+    """
+    try:
+        re.compile(pattern)
+        return True
+    except re.error:
+        return False
+
+
+def normalize_path_regex(path: str) -> str:
+    if not is_regex(path):
+        return f'^{re.escape(path)}$'
+
+    if re.match(r'^\(\.\*\)\\\\/', path):
+        return path
+
+    if '\\/' in path:
+        return f'{path}'
+
+    escaped_path = path.replace('/', '\\/')
+    return f'{escaped_path}'
+
+def transform_expression(expression: str, value: str) -> str:
+    """
+    Replace each occurrence of $<number> by %%{{VAR[<number>]}}
+    """
+    def replacer(match):
+        index = match.group(1)
+        return f"%%{{{value}[{index}]}}$"
+    
+    # Regex that captures $ followed by one or more digits
+    return re.sub(r"\$(\d+)", replacer, expression)
