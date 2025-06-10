@@ -14,7 +14,6 @@ from utils import (
     sanitize_name, 
     find_function, 
     compact_and_sanitize, 
-    normalize_path_regex, 
     transform_expression
 )
 
@@ -509,13 +508,10 @@ def process_criteria(
 
     # Assemble criteria groups
     if len(request_entries) > 0:
-        if len(request_entries) == 1:
-            request_entries[0]["conditional"] = "if"
-
+        request_entries[0]["conditional"] = "if"
         azion_criteria["request"] = {"entries": request_entries}
     if len(response_entries) > 0:
-        if len(response_entries) == 1:
-            response_entries[0]["conditional"] = "if"
+        response_entries[0]["conditional"] = "if"
 
         azion_criteria["response"] = {"entries": response_entries}
 
@@ -657,12 +653,10 @@ def behavior_capture_match_groups(
         logging.warning(f"Behavior '{mapping['azion_behavior']}' is missing required fields: {missing_fields}")
         return azion_behaviors
 
-    regex_value = replace_variables(options.get('regex')).replace('/', r'\/').replace('.', r'\\.')
+    regex_value = replace_variables(options.get('regex')).replace('/', r'\/').replace('.', r'\\.').replace(r'\d', r'\\d')
     captured_array = replace_variables(options.get("variableName",f"var{mapping['azion_behavior']}"))
     captured_array = captured_array[:10]
     subject = replace_variables(options.get("variableValue","$${uri}"))
-    print(f'$$$$$$$$$$ DBG captured_array={captured_array}, regex_value={regex_value}, subject={subject}')
-    regex_value = normalize_path_regex(regex_value)
     azion_behavior = {
         "name": mapping["azion_behavior"],
         "enabled": True,
