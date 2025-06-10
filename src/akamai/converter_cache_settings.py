@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Any, List, Optional
 from azion_resources import AzionResource
-from utils import parse_ttl, sanitize_name
+from utils import parse_ttl, compact_and_sanitize
 
 
 def map_allow_behavior_to_azion(allow_behavior: str, ttl: int) -> Dict[str, Any]:
@@ -76,7 +76,7 @@ def create_cache_setting(
         logging.warning("No caching behavior found in rule.")
         return None
 
-    name = sanitize_name(cache_name if cache_name else caching_behavior.get('name', 'default_caching'))
+    name = compact_and_sanitize(cache_name if cache_name else caching_behavior.get('name', 'default_caching'))
     if environment != "production":
         name = f"{name}_{environment}"
     logging.info(f"Creating cache setting for rule: {name}")

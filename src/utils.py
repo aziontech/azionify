@@ -202,8 +202,8 @@ def compact_and_sanitize(name: str, max_length: int = 90) -> str:
         
         return f"{prefix}{separator}{suffix}"
 
-    compacted = compact(name)
-    return sanitize_name(compacted)
+    compacted = compact(sanitize_name(name))
+    return compacted
 
 def clean_and_parse_json(json_string: str) -> Optional[Any]:
     """
@@ -449,16 +449,18 @@ def is_regex(pattern: str) -> bool:
 
 
 def normalize_path_regex(path: str) -> str:
-    if not is_regex(path):
-        return f'^{re.escape(path)}$'
-
-    if re.match(r'^\(\.\*\)\\\\/', path):
-        return path
-
-    if '\\/' in path:
-        return f'{path}'
-
     escaped_path = path.replace('/', '\\/')
+
+    if not is_regex(escaped_path):
+        return f'^{re.escape(escaped_path)}$'
+
+    #if re.match(r'^\(\.\*\)\\\\/', path):
+    #    return path
+
+    #if '\\/' in path:
+    #    return f'{path}'
+
+    #escaped_path = path.replace('/', '\\/')
     return f'{escaped_path}'
 
 def transform_expression(expression: str, value: str) -> str:
