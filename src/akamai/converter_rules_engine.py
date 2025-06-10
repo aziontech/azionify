@@ -14,7 +14,6 @@ from utils import (
     sanitize_name, 
     find_function, 
     compact_and_sanitize, 
-    normalize_path_regex, 
     transform_expression
 )
 
