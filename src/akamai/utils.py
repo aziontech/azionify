@@ -438,6 +438,7 @@ def format_path_pattern(values: List[str]) -> str:
         escaped = escaped.replace(r'\-', r'\\-')
         escaped = escaped.replace(r'\&', r'\\&')
         escaped = escaped.replace(r'\?', r'\\?')
+        escaped = escaped.replace(r'\d', r'\\d')
         return escaped
 
     joined = "|".join(escape_and_convert(v) for v in values)
