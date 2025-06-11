@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Any, List
 from azion_resources import AzionResource
-from utils import clean_and_parse_json, sanitize_name
+from utils import clean_and_parse_json, compact_and_sanitize, sanitize_name
 from akamai.converter_domain import create_domain
 from akamai.converter_main_settings import create_main_setting
 from akamai.converter_origin import create_origin
@@ -285,7 +285,7 @@ def process_rule_children(
                         context["waf"] = waf_rule
 
                 elif behavior.get("name") == "baseDirectory":
-                    idx, origin = azion_resources.query_azion_resource_by_type('azion_edge_application_origin', sanitize_name(rule_name))
+                    idx, origin = azion_resources.query_azion_resource_by_type('azion_edge_application_origin', compact_and_sanitize(rule_name), match="prefix")
                     if origin:
                         origin["attributes"]["origin"]["origin_path"] = behavior.get("options", {}).get("value", "")
                         resources = azion_resources.get_azion_resources()

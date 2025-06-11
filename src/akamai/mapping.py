@@ -4,6 +4,7 @@ from .utils import (
     is_positive_operator,
     format_file_extension_pattern,
     format_path_pattern,
+    format_filename_pattern,
     format_header_name
 )
 
@@ -39,6 +40,11 @@ MAPPING = {
             "azion_condition": "$${uri}", 
             "azion_operator": lambda options: "matches" if is_positive_operator(options.get("matchOperator")) else "does_not_match",
             "input_value": format_path_pattern
+        },
+        "filename": {
+            "azion_condition": "$${request_uri}", 
+            "azion_operator": lambda options: "matches" if is_positive_operator(options.get("matchOperator")) else "does_not_match",
+            "input_value": format_filename_pattern
         },
         "hostname": {
             "name": "hostname",
@@ -284,7 +290,7 @@ MAPPING = {
         "baseDirectory": {
             "azion_behavior": "rewrite_request",
             "target": {
-                "target": lambda options: f"{options.get('input', '')}$${{uri}}", # Concatenate baseDirectory with original path
+                "target": lambda options: f"{options.get('value', '')}$${{uri}}", # Concatenate baseDirectory with original path
             },
             "phase": "request",
             "akamai_behavior": "baseDirectory"

@@ -444,6 +444,29 @@ def format_path_pattern(values: List[str]) -> str:
     joined = "|".join(escape_and_convert(v) for v in values)
     return rf"^({joined})$"
 
+def format_filename_pattern(values: List[str]) -> str:
+    """
+    Formats a list of uri path patterns into a double-escaped regex pattern.
+    
+    Args:
+        values (List[str]): List of path patterns to format.
+    
+    Returns:
+        str: Double-escaped regex pattern.
+    """
+    def escape_and_convert(pattern: str) -> str:
+        if pattern.startswith('^'):
+            pattern = pattern[1:]
+        escaped = pattern.rstrip('\r')
+
+        escaped = escaped.replace('/', r'\\/')
+        escaped = escaped.replace(r'.', r'\\.')
+        escaped = escaped.replace(r'-', r'\\-')
+        return escaped
+
+    joined = "|".join(escape_and_convert(v) for v in values)
+    return rf"(.*)({joined})$"
+
 
 def get_redirect_target(options: Dict[str, Any]) -> str:
     """
