@@ -1,5 +1,4 @@
 import logging
-import random
 from typing import Dict, Any, Optional
 from azion_resources import AzionResource
 from utils import compact_and_sanitize, resources_filter_by_type
