@@ -1,5 +1,4 @@
 import logging
-import random
 from typing import Dict, Any, Optional
 from azion_resources import AzionResource
 from utils import compact_and_sanitize, resources_filter_by_type
@@ -7,6 +6,7 @@ from akamai.utils import map_origin_protocol_policy, map_origin_type, map_forwar
 
 
 def create_origin(
+        context: Dict[str, Any],
         azion_resources: AzionResource,
         origin_attributes: Dict[str, Any],
         main_setting_name: str,
@@ -68,8 +68,9 @@ def create_origin(
             logging.warning(f"Hostname not properly set. Using placeholder: {hostname}")
 
         # Construct the origin resource
-        random_number = str(random.randint(1000, 9999))
-        name = compact_and_sanitize(name +"_"+ host_header + "_" + random_number if name else origin_attributes.get("name", "Default Origin"))
+        index = context.get("rule_index", 0)
+        name = name +"_"+ host_header + "_" + str(index) if name else f'{origin_attributes.get("name", "Default Origin")}_{index}'
+        name = compact_and_sanitize(name)
         if environment != "production":
             name = f"{name}_{environment}"
         origin_resource = {
