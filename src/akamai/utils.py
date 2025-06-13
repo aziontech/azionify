@@ -486,6 +486,9 @@ def get_redirect_target(options: Dict[str, Any]) -> str:
         str: URL template string wrapped in double quotes
     """
     envvar = options.get("context", {}).get("envvar")
+    if envvar and envvar.get('target').strip() == '/':
+        envvar['value'] = '/'
+    path = None
 
     # Handle protocol
     protocol = options.get('destinationProtocol', 'SAME_AS_REQUEST')
@@ -522,14 +525,15 @@ def get_redirect_target(options: Dict[str, Any]) -> str:
         path = f"{prefix}/$${{'uri'}}{suffix}"
         query_string = '$${args}' if options.get('queryString') == 'APPEND' else ''
     elif path_type == 'OTHER':
-        value = options.get('destinationPathOther','')
-        if value.startswith('{{user.'):
-            other_path = envvar.get('value', f"%%{{{value[:10]}[{1}]}}")
+        if envvar:
+            other_path = envvar.get('value')
         else:
-            if envvar:
-                other_path = envvar.get('value')
+            value = options.get('destinationPathOther')
+            if value.startswith('{{user.'):
+                value = replace_variables(value)
+                other_path = envvar.get('value', f"%%{{{value}[1]}}")
             else:
-                other_path = replace_variables(options.get('destinationPathOther', ''))
+                other_path = replace_variables(value)
         if not other_path:
             path = '$${uri}'
             query_string = '$${args}' if options.get('queryString') == 'APPEND' else ''

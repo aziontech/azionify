@@ -690,7 +690,8 @@ def behavior_capture_match_groups(
         azion_behaviors.append({
             "name": "setvar",
             "var": captured_array, 
-            "value": f'$${{http_{captured_array}}}'
+            "value": f'$${{http_{captured_array}}}',
+            "target": target
         })
     elif options.get('transform','').upper() in ['NONE','TRIM']:
         azion_behavior = {
@@ -709,7 +710,8 @@ def behavior_capture_match_groups(
         azion_behaviors.append({
             "name": "setvar",
             "var": captured_array, 
-            "value": f'$${{http_{captured_array}}}'
+            "value": f'$${{http_{captured_array}}}',
+            "target": options.get("variableValue", "")
         })
 
     return azion_behaviors
