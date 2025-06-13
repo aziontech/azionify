@@ -162,12 +162,12 @@ def process_rule_behaviors(
     context["parent_rule_name"] = normalized_name
     context["main_setting_name"] = main_setting_name
     context["rule_name"] = rule.get("name")
-    context["index"] = index
+    context["rule_index"] = index
     
     # Process Origin first
     origin_behavior = next(filter(lambda b: b.get('name') == 'origin', behaviors), None)
     if origin_behavior:
-        origin = create_origin(azion_resources, origin_behavior, main_setting_name, origin_hostname, context["rule_name"])
+        origin = create_origin(context, azion_resources, origin_behavior, main_setting_name, origin_hostname, context["rule_name"])
         if origin:
             azion_resources.append(origin)
             context["origin"] = origin
@@ -250,7 +250,7 @@ def process_rule_children(
             for behavior in behaviors:
                 behavior_name = behavior.get("name")
                 if behavior_name == "origin":
-                    origin_setting = create_origin(azion_resources, behavior, main_setting_name, origin_hostname, sanitize_name(rule_name))
+                    origin_setting = create_origin(context, azion_resources, behavior, main_setting_name, origin_hostname, sanitize_name(rule_name))
                     if origin_setting:
                         logging.info(f"Origin setting created for rule: {rule_name}")
                         azion_resources.append(origin_setting)
