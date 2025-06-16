@@ -407,12 +407,15 @@ def format_header_name(options: Dict[str, Any]) -> str:
         str: Formatted header string in the form 'HeaderName:HeaderValue'.
     """
     header_name = options.get('customHeaderName', '').strip()
+    header_value = ''
     if header_name == '':
         header_name = HTTP_HEADERS.get(options.get('standardModifyHeaderName',''), '')
     header_value = options.get('newHeaderValue', '').strip()
     if header_value == '':
         header_value = options.get('headerValue','')
 
+    if header_value == "":
+        return f"\"{header_name}\""
     return f"\"{header_name}: {header_value}\""
 
 
