@@ -46,6 +46,7 @@ HTTP_HEADERS = {
     "CACHE_CONTROL": "Cache-Control",
     "CONTENT_DISPOSITION": "Content-Disposition",
     "CONTENT_TYPE": "Content-Type",
+    "EDGE_CONTROL": "Edge-Control",
     "P3P": "P3P",
     "PRAGMA": "Pragma",
     "ACCESS_CONTROL_ALLOW_ORIGIN": "Access-Control-Allow-Origin",
@@ -380,12 +381,9 @@ def format_file_extension_pattern(values: Union[List[str], str]) -> str:
     
     # Add pattern for URLs without extensions (EMPTY_STRING case)
     if has_empty_string:
-        empty_ext_patterns = [
-            r"\\/(\\?.*)?$",  # URLs with / and with or without query params
-            r"(\\?<!\\/)[^.\\/]*(\\?.*)?$"  # URLs with / and without . at the end, with or without query params
-        ]
-        patterns.extend(empty_ext_patterns)
-    
+        no_ext_pattern = r"^([^\\?#]*\\/)?[^\\/\\.\\?#]+\\/\\?([\\?#]\\?.*)?$"
+        patterns.append(no_ext_pattern)
+
     # Combine all patterns with OR (|)
     if patterns:
         return "|".join(f"({p})" for p in patterns)
@@ -403,14 +401,16 @@ def format_header_name(options: Dict[str, Any]) -> str:
         str: Formatted header string in the form 'HeaderName:HeaderValue'.
     """
     header_name = options.get('customHeaderName', '').strip()
-    header_value = ''
     if header_name == '':
         header_name = HTTP_HEADERS.get(options.get('standardModifyHeaderName',''), '')
+        if header_name == '':
+            header_name = HTTP_HEADERS.get(options.get('standardDeleteHeaderName',''), '')
     header_value = options.get('newHeaderValue', '').strip()
+
     if header_value == '':
         header_value = options.get('headerValue','')
 
-    if header_value == "":
+    if header_value == '':
         return f"\"{header_name}\""
     return f"\"{header_name}: {header_value}\""
 
@@ -484,9 +484,13 @@ def get_redirect_target(options: Dict[str, Any]) -> str:
     Returns:
         str: URL template string wrapped in double quotes
     """
+    #Handle envvar
+    envvar_startwith_slash = False
     envvar = options.get("context", {}).get("envvar")
-    if envvar and envvar.get('target').strip() == '/':
-        envvar['value'] = '/'
+    if envvar:
+        if envvar.get('target').strip() == '/':
+            envvar['value'] = '/'
+        envvar_startwith_slash = envvar.get('target','').strip().startswith('/')
     path = None
 
     # Handle protocol
@@ -549,7 +553,7 @@ def get_redirect_target(options: Dict[str, Any]) -> str:
         # Remove duplicate slashes and ensure path starts with /
         while '//' in path:
             path = path.replace('//', '/')
-        if not path.startswith('/'):
+        if not path.startswith('/') and not envvar_startwith_slash:
             path = '/' + path
         url = f"{url}{path}"
     if query_string and '?' not in url:

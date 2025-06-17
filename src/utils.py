@@ -203,6 +203,8 @@ def compact_and_sanitize(name: str, max_length: int = 90) -> str:
         return f"{prefix}{separator}{suffix}"
 
     compacted = compact(sanitize_name(name))
+    if compacted.endswith('_'):
+        compacted = compacted[:-1]
     return compacted
 
 def clean_and_parse_json(json_string: str) -> Optional[Any]:

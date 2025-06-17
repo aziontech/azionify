@@ -645,6 +645,10 @@ def behavior_capture_match_groups(
     """
     azion_behaviors = []
 
+    if options.get("globalSubstitution", False):
+        logging.warning("'setVariable' with 'globalSubstitution = TRUE' is not supported for capture match groups")
+        return azion_behaviors
+
     required_fields = {
         "captured_array": options.get("variableName"),
         "regex": options.get("regex")
@@ -657,7 +661,10 @@ def behavior_capture_match_groups(
     regex_value = replace_variables(options.get('regex')).replace('/', r'\/').replace('.', r'\\.').replace(r'\d', r'\\d')
     captured_array = replace_variables(options.get("variableName",f"var{mapping['azion_behavior']}"))
     captured_array = captured_array[:10]
-    subject = replace_variables(options.get("variableValue","$${uri}"))
+    if "PMUSER_" in options.get("variableValue", ""):
+        subject = "$${uri}"
+    else:
+        subject = replace_variables(options.get("variableValue","$${uri}"))
     azion_behavior = {
         "name": mapping["azion_behavior"],
         "enabled": True,
