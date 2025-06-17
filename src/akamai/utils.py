@@ -380,21 +380,17 @@ def format_file_extension_pattern(values: Union[List[str], str]) -> str:
     
     # Add pattern for URLs without extensions (EMPTY_STRING case)
     if has_empty_string:
-        # This matches:
-        # - URLs ending with a slash: example.com/path/
-        # - URLs without a dot in the last path segment: example.com/path
-        # But not: example.com/path.ext or example.com/path.ext?param=value
-        empty_ext_pattern = r"(?<!/)(?:\\?.*)?$"
-        patterns.append(empty_ext_pattern)
+        empty_ext_patterns = [
+            r"\\/(\\?.*)?$",  # URLs with / and with or without query params
+            r"(\\?<!\\/)[^.\\/]*(\\?.*)?$"  # URLs with / and without . at the end, with or without query params
+        ]
+        patterns.extend(empty_ext_patterns)
     
-    # If we have both patterns, combine them with OR (|)
-    if len(patterns) > 1:
+    # Combine all patterns with OR (|)
+    if patterns:
         return "|".join(f"({p})" for p in patterns)
-    elif patterns:
-        return patterns[0]
     else:
-        # Default case (shouldn't normally happen)
-        return r"(?:\\?.*)?$"
+        return r"(\\?.*)?$"  # Default fallback
 
 def format_header_name(options: Dict[str, Any]) -> str:
     """

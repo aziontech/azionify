@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Dict, List, Any, Set, Tuple, Optional
 from azion_resources import AzionResource
 from akamai.mapping import MAPPING
@@ -734,6 +735,7 @@ def behavior_rewrite_request(options, name):
     elif option_behavior == "REPLACE":
         regex_value = replace_variables(options.get('match')).replace('/', r'\\/').replace('.', r'\\.')
         captured_array = sanitize_name(name).upper()[:10]
+        captured_array = re.sub(r"\d+", "", captured_array) # Remove all numeric characters
         subject = '$${request_uri}'
         behavior_match_group = {
             "name": "capture_match_groups",
@@ -774,6 +776,7 @@ def behavior_rewrite_request(options, name):
         escaped_match = match_value.replace('/', r'\/').replace('.', r'\.')
         regex_value = f"^(.*){escaped_match}(.*)$"
         captured_array = sanitize_name(name).upper()[:10]
+        captured_array = re.sub(r"\d+", "", captured_array) # Remove all numeric characters
         subject = '$${request_uri}'
         behavior_match_group = {
             "name": "capture_match_groups",
