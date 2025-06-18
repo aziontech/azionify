@@ -287,9 +287,12 @@ def process_rule_children(
                 elif behavior.get("name") == "baseDirectory":
                     idx, origin = azion_resources.query_azion_resource_by_type('azion_edge_application_origin', compact_and_sanitize(rule_name), match="prefix")
                     if origin:
-                        origin["attributes"]["origin"]["origin_path"] = behavior.get("options", {}).get("value", "")
-                        resources = azion_resources.get_azion_resources()
-                        resources[idx] = origin
+                        value = behavior.get("options", {}).get("value", "")
+                        # if value is / isn't necessary change the origin base path
+                        if value.strip() != '/':
+                            origin["attributes"]["origin"]["origin_path"] = value
+                            resources = azion_resources.get_azion_resources()
+                            resources[idx] = origin
 
             azion_resources.extend(create_rule_engine(azion_resources, rule, context, rule_name))
 
