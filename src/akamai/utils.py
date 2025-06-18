@@ -381,7 +381,7 @@ def format_file_extension_pattern(values: Union[List[str], str]) -> str:
     
     # Add pattern for URLs without extensions (EMPTY_STRING case)
     if has_empty_string:
-        no_ext_pattern = r"^([^\\?#]*\\/)?[^\\/\\.\\?#]+\\/\\?([\\?#]\\?.*)?$"
+        no_ext_pattern = r"^([^?#]\\/)?[^\\/\\.?#]+\\/?([?#].*)?$"
         patterns.append(no_ext_pattern)
 
     # Combine all patterns with OR (|)
