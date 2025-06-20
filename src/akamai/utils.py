@@ -192,6 +192,8 @@ def map_variable(value: str) -> str:
         value = value.replace("{{builtin.", "").replace("}}", "")
     if value.startswith("{{user."):
         value = value.replace("{{user.", "").replace("}}", "")
+    if value.startswith('PMUSER_'):
+        value = value.removeprefix('PMUSER_')[:10]
 
     # Get the appropriate mapping for the variable or return the original value as a fallback
     variable = AKAMAI_TO_AZION_MAP.get(value, value)
@@ -218,8 +220,6 @@ def replace_variables(input_string: str) -> str:
 
     # Replace all occurrences of Akamai variables in the string using the regex pattern
     modified_string = re.sub(pattern, replace_match, input_string)
-    if modified_string.startswith('PMUSER_'):
-        modified_string = modified_string.removeprefix('PMUSER_')
 
     # Return the modified string, or the original if no replacements were made
     value = modified_string if modified_string != input_string else input_string
@@ -528,15 +528,8 @@ def get_redirect_target(options: Dict[str, Any]) -> str:
         path = f"{prefix}/$${{'uri'}}{suffix}"
         query_string = '$${args}' if options.get('queryString') == 'APPEND' else ''
     elif path_type == 'OTHER':
-        if envvar:
-            other_path = envvar.get('value')
-        else:
-            value = options.get('destinationPathOther')
-            if value.startswith('{{user.'):
-                value = replace_variables(value)
-                other_path = envvar.get('value', f"%%{{{value}[1]}}")
-            else:
-                other_path = replace_variables(value)
+        value = options.get('destinationPathOther')
+        other_path = replace_variables(value)
         if not other_path:
             path = '$${uri}'
             query_string = '$${args}' if options.get('queryString') == 'APPEND' else ''
