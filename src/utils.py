@@ -471,7 +471,7 @@ def transform_expression(expression: str, value: str) -> str:
     """
     def replacer(match):
         index = match.group(1)
-        return f"%%{{{value}[{index}]}}$"
+        return f"%%{{{value}[{index}]}}"
     
     # Regex that captures $ followed by one or more digits
     return re.sub(r"\$(\d+)", replacer, expression)

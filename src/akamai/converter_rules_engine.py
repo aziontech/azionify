@@ -8,7 +8,8 @@ from akamai.utils import (
     map_origin_type,
     replace_variables,
     map_operator,
-    behavior_key
+    behavior_key,
+    AKAMAI_TO_AZION_MAP
 )
 from akamai.converter_edge_function_instance import create_edge_function_instance
 from utils import (
@@ -659,8 +660,10 @@ def behavior_capture_match_groups(
         return azion_behaviors
 
     regex_value = replace_variables(options.get('regex')).replace('/', r'\/').replace('.', r'\\.').replace(r'\d', r'\\d')
-    captured_array = replace_variables(options.get("variableName",f"var{mapping['azion_behavior']}"))
-    captured_array = captured_array[:10]
+    varname = options.get("variableName",f"var{mapping['azion_behavior']}")
+    if "PMUSER_" in varname:
+        varname = varname.removeprefix('PMUSER_')
+    captured_array = varname[:10]
     if "PMUSER_" in options.get("variableValue", ""):
         subject = "$${uri}"
     else:
@@ -682,45 +685,21 @@ def behavior_capture_match_groups(
 
     if options.get('transform','').upper() == 'SUBSTITUTE':
         target = transform_expression(options.get('replacement',f'{captured_array}{1}'), captured_array)
-        azion_behavior = {
-            "name": 'add_request_header',
-            "enabled": True,
-            "description": behavior.get(
-                "description", 
-                "Behavior add_request_header, variableName: " + captured_array
-            ),
-            "phase": "request",
-            "target": {
-                "target": f'\"{captured_array}: {target}\"'
-            }
-        }
-        azion_behaviors.append(azion_behavior)
         azion_behaviors.append({
             "name": "setvar",
             "var": captured_array, 
             "value": f'$${{http_{captured_array}}}',
             "target": target
         })
+        AKAMAI_TO_AZION_MAP[captured_array] = target
     elif options.get('transform','').upper() in ['NONE','TRIM']:
-        azion_behavior = {
-            "name": 'add_request_header',
-            "enabled": True,
-            "description": behavior.get(
-                "description", 
-                "Behavior add_request_header, variableName: " + captured_array
-            ),
-            "phase": "request",
-            "target": {
-                "target": f'\"{captured_array}: {options.get("variableValue", "")}\"'
-            }
-        }
-        azion_behaviors.append(azion_behavior)
         azion_behaviors.append({
             "name": "setvar",
             "var": captured_array, 
             "value": f'$${{http_{captured_array}}}',
             "target": options.get("variableValue", "")
         })
+        AKAMAI_TO_AZION_MAP[captured_array] = options.get("variableValue", "")
 
     return azion_behaviors
 
