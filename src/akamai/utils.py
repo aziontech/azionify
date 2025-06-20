@@ -196,7 +196,7 @@ def map_variable(value: str) -> str:
         value = value.removeprefix('PMUSER_')[:10]
 
     # Get the appropriate mapping for the variable or return the original value as a fallback
-    variable = AKAMAI_TO_AZION_MAP.get(value, value)
+    variable = AKAMAI_TO_AZION_MAP.get(value, value).strip()
     return variable
 
 def replace_variables(input_string: str) -> str:
