@@ -301,6 +301,7 @@ def write_rule_engine_block(f, resource: Dict[str, Any]) -> None:
         # Get resource name from results
         name = results.get("name", "unnamed_rule")
         normalized_name = resource.get("name")
+        order = resource.get("order", 0)
 
         if "offload_origin" in normalized_name:
             return
@@ -379,7 +380,7 @@ def write_rule_engine_block(f, resource: Dict[str, Any]) -> None:
         # Write order if present
         order = results.get("order")
         if order is not None:
-            write_indented(f, f"order = {int(order)}", 2)
+            write_indented(f, f"#order = {int(order)}", 2)
 
         # Close blocks
         write_indented(f, "}", 1)

@@ -34,6 +34,20 @@ CONDITIONAL_MAP = {
 BEHAVIOR_CACHE_PHASE = ["NO_STORE", "NO_CACHE"]
 
 
+# Create order factory
+def create_order_factory():
+    current = 1
+
+    def create_order() -> int:
+        nonlocal current
+        value = current
+        current += 1
+        return value
+    
+    return create_order
+create_rule_order = create_order_factory()
+
+
 def create_rule_engine(
         azion_resources: AzionResource,
         rule: Dict[str, Any],
@@ -103,6 +117,7 @@ def create_rule_engine(
             if len(request_behaviors) > 0:
                 rules = assemble_request_rule(processed_rule, 
                                                 rule_name, 
+                                                index,
                                                 main_setting_name, 
                                                 azion_criteria, 
                                                 request_behaviors, 
@@ -142,6 +157,7 @@ def create_rule_engine(
 def assemble_request_rule(
         rule: Dict[str, Any],
         rule_name: str,
+        index: int,
         main_setting_name: str,
         azion_criteria: Dict[str, Any],
         request_behaviors: List[Dict[str, Any]],
@@ -195,6 +211,9 @@ def assemble_request_rule(
 
         if rule_name == 'default':
             phase = "default"
+            order = 0
+        else:
+            order = create_rule_order()
 
         resource = {
             "type": "azion_edge_application_rule_engine",
@@ -206,7 +225,8 @@ def assemble_request_rule(
                     "description": rule_description,
                     "phase": phase,
                     "behaviors": standard_behaviors,
-                    "criteria": criteria
+                    "criteria": criteria,
+                    "order": order
                 },
                 "depends_on": depends_on
             }
@@ -221,9 +241,10 @@ def assemble_request_rule(
         
         # Create a rule for each special behavior, combined with all standard behaviors
         for idx, special_behavior in enumerate(special_behaviors):
-            suffix = f"_sp{idx+1}"
+            order = create_rule_order()
+            suffix = f"_{order}_sp{idx+1}"
             unique_rule_name = rule_name + suffix
-            
+
             if not criteria:
                 criteria = azion_criteria.get("request_default", None)
                 logging.warning(f"[rules_engine][assemble_request_rule] Using default criteria for rule: '{rule_name}'.")
@@ -238,7 +259,8 @@ def assemble_request_rule(
                         "description": f"{rule_description} (Rule '{rule_name}' split {idx+1}/{len(special_behaviors)})",
                         "phase": "request",
                         "behaviors": [special_behavior],
-                        "criteria": criteria
+                        "criteria": criteria,
+                        "order": order
                     },
                     "depends_on": depends_on
                 }
@@ -306,9 +328,11 @@ def assemble_response_rule(
                 "name": unique_rule_name,
                 "description": rule_description,
                 "phase": "response",
-                "behaviors": behaviors
+                "behaviors": behaviors,
+                "order": create_rule_order()
             },
-            "depends_on": depends_on
+            "depends_on": depends_on,
+            "order": index
         }
     }
 
@@ -790,6 +814,7 @@ def behavior_rewrite_request(options, name):
 
 def process_forward_rewrite(context,
                            name, 
+                           index,
                            main_setting_name,
                            depends_on) -> List[Dict[str, Any]]:
     """
@@ -828,6 +853,7 @@ def process_forward_rewrite(context,
     ]
     resource = assemble_request_rule(context.get("rule"), 
                                     name, 
+                                    index + 1,
                                     main_setting_name, 
                                     forwardRewrite_criteria, 
                                     forwardRewrite_behaviors, 
@@ -1075,6 +1101,7 @@ def process_behaviors(
                         forward_rewrite_name = compact_and_sanitize(f"{rule_name}_{rule_index}_{function_name}")
                         resource = process_forward_rewrite(context,
                                                          forward_rewrite_name,
+                                                         rule_index,
                                                          main_setting_name,
                                                          depends_on)
                         if resource:
