@@ -32,7 +32,7 @@ MAPPING = {
     "criteria": {
         # Request Phase Variables
         "fileExtension": {
-            "azion_condition": "$${request_uri}}", 
+            "azion_condition": "$${request_uri}", 
             "azion_operator": "matches",
             "input_value": format_file_extension_pattern
         },
