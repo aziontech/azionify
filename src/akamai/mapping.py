@@ -221,7 +221,7 @@ MAPPING = {
         # Redirects
         "redirect": {
             "azion_behavior": 
-                lambda options: "redirect_http_to_https" if options.get("responseCode", 0) not in [301, 302] else f"redirect_to_{options.get('responseCode', 301)}",
+                lambda options: "redirect_http_to_https" if options.get("responseCode", 301) not in [301, 302] else f"redirect_to_{options.get('responseCode', 301)}",
              "target": {
                 "target": get_redirect_target
              },
