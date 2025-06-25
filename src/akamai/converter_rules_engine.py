@@ -36,7 +36,7 @@ BEHAVIOR_CACHE_PHASE = ["NO_STORE", "NO_CACHE"]
 
 # Create order factory
 def create_order_factory():
-    current = 1
+    current = 2
 
     def create_order() -> int:
         nonlocal current
@@ -211,7 +211,7 @@ def assemble_request_rule(
 
         if rule_name == 'default':
             phase = "default"
-            order = 0
+            order = 1
         else:
             order = create_rule_order()
 
