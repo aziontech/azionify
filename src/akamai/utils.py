@@ -525,7 +525,7 @@ def get_redirect_target(options: Dict[str, Any]) -> str:
         prefix = options.get('destinationPathPrefix', '')
         suffix_status = options.get('destinationPathSuffixStatus', 'NO_SUFFIX')
         suffix = options.get('destinationPathSuffix', '') if suffix_status == 'SUFFIX' else ''
-        path = f"{prefix}/$${{'uri'}}{suffix}"
+        path = f"{prefix}/$${{uri}}{suffix}"
         query_string = '$${args}' if options.get('queryString') == 'APPEND' else ''
     elif path_type == 'OTHER':
         value = options.get('destinationPathOther')
