@@ -42,10 +42,11 @@ def create_order_factory():
         nonlocal current
         value = current
         current += 1
-        return value
+        return (value * 10)
     
     return create_order
-create_rule_order = create_order_factory()
+create_request_rule_order = create_order_factory()
+create_response_rule_order = create_order_factory()
 
 
 def create_rule_engine(
@@ -213,7 +214,7 @@ def assemble_request_rule(
             phase = "default"
             order = 1
         else:
-            order = create_rule_order()
+            order = create_request_rule_order()
 
         resource = {
             "type": "azion_edge_application_rule_engine",
@@ -241,7 +242,7 @@ def assemble_request_rule(
         
         # Create a rule for each special behavior, combined with all standard behaviors
         for idx, special_behavior in enumerate(special_behaviors):
-            order = create_rule_order()
+            order = create_request_rule_order()
             suffix = f"_{order}_sp{idx+1}"
             unique_rule_name = rule_name + suffix
 
@@ -329,7 +330,7 @@ def assemble_response_rule(
                 "description": rule_description,
                 "phase": "response",
                 "behaviors": behaviors,
-                "order": create_rule_order()
+                "order": create_response_rule_order()
             },
             "depends_on": depends_on,
             "order": index
