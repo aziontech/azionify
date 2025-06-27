@@ -33,7 +33,7 @@ MAPPING = {
         # Request Phase Variables
         "fileExtension": {
             "azion_condition": "$${request_uri}", 
-            "azion_operator": "matches",
+            "azion_operator": lambda options: "matches" if is_positive_operator(options.get("matchOperator")) else "does_not_match",
             "input_value": format_file_extension_pattern
         },
         "path": {
