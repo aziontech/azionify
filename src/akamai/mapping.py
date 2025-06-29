@@ -5,7 +5,9 @@ from .utils import (
     format_file_extension_pattern,
     format_path_pattern,
     format_filename_pattern,
-    format_header_name
+    format_header_name,
+    get_http_header_varname,
+    format_varitens_pattern
 )
 
 # Mapping for Akamai to Azion behavior/criteria conversions
@@ -57,6 +59,13 @@ MAPPING = {
             "azion_condition": "$${scheme}", 
             "azion_operator": "is_equal",
             "input_value": lambda values: f'{values[0].lower()}'
+        },
+        "matchVariable": {
+            "name": "matchVariable",
+            "azion_condition": get_http_header_varname, 
+            "azion_operator": lambda options: "matches" if is_positive_operator(options.get("matchOperator")) else "does_not_match",
+            "input_value": format_varitens_pattern,
+            "phase": "request"
         },
         "deviceGroup": {"azion_condition": "$${device_group}", "azion_operator": "is_equal"},
         "geoip_country_code": {"azion_condition": "$${geoip_country_code}", "azion_operator": "is_equal"},
