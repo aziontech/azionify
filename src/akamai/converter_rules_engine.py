@@ -1,5 +1,6 @@
 import logging
 import re
+import copy
 from typing import Dict, List, Any, Set, Tuple, Optional
 from azion_resources import AzionResource
 from akamai.mapping import MAPPING
@@ -463,6 +464,7 @@ def process_criteria(
     request_entries = []
     response_entries = []
 
+    logging.info(f'[rules_engine][process_criteria] Processing criteria for rule: {rule.get("name")}')
     if not criteria:
         azion_criteria = process_criteria_default(behaviors_names)
         return azion_criteria
@@ -471,12 +473,12 @@ def process_criteria(
         name = criterion.get("name")
         options = criterion.get("options", {})
         if not name:
-            logging.warning(f"Criterion {criterion} at index {index} is missing a name. Skipping.")
+            logging.warning(f"[rules_engine][process_criteria] Criterion {criterion} at index {index} is missing a name. Skipping.")
             continue
 
         mapping = MAPPING.get("criteria", {}).get(name)
         if not mapping:
-            logging.warning(f"No mapping found for criterion: {name}. Skipping.")
+            logging.warning(f"[rules_engine][process_criteria] No mapping found for criterion: {name}. Skipping.")
             continue
         # Map Akamai's criteriaMustSatisfy to Azion's conditional
         criteria_has_condition = rule.get("criteriaMustSatisfy", "one")
@@ -497,6 +499,11 @@ def process_criteria(
                 values = [options.get("originId", "")]
             elif 'values' in options:
                 values = options.get("values", [])
+            elif 'variableValues' in options:
+                values = options.get("variableValues", [])
+            elif 'variableExpression' in options:
+                values = options.get("variableExpression", ['*'])
+                values = [values]
             else:
                 values = [options.get("value", "")]
 
@@ -511,9 +518,15 @@ def process_criteria(
                 else:
                     input_value = "*"
 
+            # Handle variable
+            if callable(mapping.get("azion_condition")):
+                azion_condition = mapping["azion_condition"](options)
+            else:
+                azion_condition = mapping.get("azion_condition")
+
             # Build the entry
             entry = {
-                "variable": mapping["azion_condition"],
+                "variable": azion_condition,
                 "operator": azion_operator,
                 "conditional": group_conditional,
                 "akamai_behavior": mapping.get("akamai_behavior",""),
@@ -531,20 +544,40 @@ def process_criteria(
                 request_entries.append(entry)
 
         except ValueError as e:
-            logging.error(f"Error processing criterion {name}: {str(e)}")
+            logging.error(f"[rules_engine][process_criteria] Error processing criterion {name}: {str(e)}")
 
     # Assemble criteria groups
     if len(request_entries) > 0:
-        request_entries[0]["conditional"] = "if"
-        azion_criteria["request"] = {"entries": request_entries}
+        for index in range(len(request_entries)):
+            request_entries[index] = copy.deepcopy(request_entries[index])
+            if index == 0:
+                request_entries[index]["conditional"] = "if"
+            else:
+                if criteria_has_condition == "all":
+                    request_entries[index]["conditional"] = "and"
+                else:
+                    request_entries[index]["conditional"] = "or"
+
     if len(response_entries) > 0:
-        response_entries[0]["conditional"] = "if"
+        for index in range(len(response_entries)):
+            response_entries[index] = copy.deepcopy(response_entries[index])
+            if index == 0:
+                response_entries[index]["conditional"] = "if"
+            else:
+                if criteria_has_condition == "all":
+                    response_entries[index]["conditional"] = "and"
+                else:
+                    response_entries[index]["conditional"] = "or"
 
-        azion_criteria["response"] = {"entries": response_entries}
+    azion_criteria = {
+        'request': {'entries': request_entries},
+        'response': {'entries': response_entries}
+    }
 
-    if not azion_criteria.get("request") and not azion_criteria.get("response"):
+    if len(request_entries) == 0 and len(response_entries) == 0:
         azion_criteria = process_criteria_default(behaviors_names)
 
+    logging.info(f'[rules_engine][process_criteria] Processed criteria for rule: {rule.get("name")}, request {len(request_entries)}, response {len(response_entries)}')
     return azion_criteria
 
 def behavior_cache_setting(
@@ -670,24 +703,80 @@ def behavior_capture_match_groups(
         List[Dict[str, Any]]: A list of Azion behaviors.
     """
     azion_behaviors = []
+    value = None
 
     if options.get("globalSubstitution", False):
         logging.warning("'setVariable' with 'globalSubstitution = TRUE' is not supported for capture match groups")
         return azion_behaviors
 
     required_fields = {
-        "captured_array": options.get("variableName"),
-        "regex": options.get("regex")
+        "captured_array": options.get("variableName")
     }
     missing_fields = {k: v for k, v in required_fields.items() if not v}
     if missing_fields:
         logging.warning(f"Behavior '{mapping['azion_behavior']}' is missing required fields: {missing_fields}")
         return azion_behaviors
 
-    regex_value = replace_variables(options.get('regex')).replace('/', r'\/').replace('.', r'\\.').replace(r'\d', r'\\d')
     varname = options.get("variableName",f"var{mapping['azion_behavior']}")
     if "PMUSER_" in varname:
         varname = varname.removeprefix('PMUSER_')
+    varname = varname[:10]
+
+    # Set variable
+    if options.get('regex') is None:
+        if options.get('extractLocation','').upper() in ['CLIENT_REQUEST_HEADER', 'QUERY_STRING', 'RESPONSE_HEADER']:
+            if options.get('extractLocation','').upper() == 'CLIENT_REQUEST_HEADER':
+                value = sanitize_name(options.get("headerName", "$${http_header}"))
+            elif options.get('extractLocation','').upper() == 'QUERY_STRING':
+                value = "$${args}"
+            elif options.get('extractLocation','').upper() == 'RESPONSE_HEADER':
+                value = "$${sent_http_header}"
+            else:
+                value = "$${uri}"          
+            
+            # Capture header content
+            azion_behavior = {
+                "name": mapping["azion_behavior"],
+                "enabled": True,
+                "phase": "request",
+                "description": behavior.get(
+                    "description", 
+                    "Capture content from header: " + varname
+                ),
+                "target": {
+                    "captured_array": f'"{varname}"',
+                    "subject": f'"$${{http_{value}}}"',
+                    "regex": "\"(.*)\"",
+                }
+            }
+            azion_behaviors.append(azion_behavior)
+            value = f'%%{{{varname}}}'
+
+        # Handle variable name
+        if value is None:
+            value = options.get("variableValue", varname)
+        captured_array = sanitize_name(varname)
+
+        azion_behavior = {
+            "name": "add_request_header",
+            "enabled": True,
+            "target": {
+                "target": f'\"{captured_array}: {value}\"'
+            },
+            "phase": "request"
+        }
+        azion_behaviors.append(azion_behavior)
+
+        azion_behaviors.append({
+            "name": "setvar",
+            "var": captured_array, 
+            "value": f'$${{http_{captured_array}}}',
+            "target": value
+        })
+        AKAMAI_TO_AZION_MAP[varname] = value
+        return azion_behaviors
+
+    regex_value = replace_variables(options.get('regex')).replace('/', r'\/').replace('.', r'\\.').replace(r'\d', r'\\d')
     captured_array = varname[:10]
     if "PMUSER_" in options.get("variableValue", ""):
         subject = "$${uri}"
@@ -696,6 +785,7 @@ def behavior_capture_match_groups(
     azion_behavior = {
         "name": mapping["azion_behavior"],
         "enabled": True,
+        "phase": "request",
         "description": behavior.get(
             "description", 
             "Behavior capture_match_groups, variableName: " + options.get("variableName", "")

@@ -400,15 +400,19 @@ def format_header_name(options: Dict[str, Any]) -> str:
     Returns:
         str: Formatted header string in the form 'HeaderName:HeaderValue'.
     """
+    envvar = options.get("context", {}).get("envvar")
     header_name = options.get('customHeaderName', '').strip()
     if header_name == '':
         header_name = HTTP_HEADERS.get(options.get('standardModifyHeaderName',''), '')
         if header_name == '':
             header_name = HTTP_HEADERS.get(options.get('standardDeleteHeaderName',''), '')
-    header_value = options.get('newHeaderValue', '').strip()
+    header_value = map_variable(options.get('newHeaderValue', '').strip())
 
     if header_value == '':
         header_value = options.get('headerValue','')
+
+    if envvar and header_value == envvar.get('target', ''):
+        header_value = envvar.get('value', '')
 
     if header_value == '':
         return f"\"{header_name}\""
@@ -553,3 +557,20 @@ def get_redirect_target(options: Dict[str, Any]) -> str:
         url = f"{url}?{query_string}"
     
     return f'"{url}"'
+
+def get_http_header_varname(options: Dict[str, Any]) -> str:
+    """
+    Returns the variable name from the options dictionary, removing the 'PMUSER_' prefix if present.
+    """
+    varname = options.get("variableName", "NONE")
+    if "PMUSER_" in varname:
+        varname = varname.removeprefix('PMUSER_')
+    return f'$${{http_{sanitize_name(varname)}}}'
+    
+def format_varitens_pattern(itens: List[str]) -> str:
+    """
+    Returns the variable values from the options dictionary
+    """
+    regex = '({})'.format("|".join(itens))
+    return regex
+
