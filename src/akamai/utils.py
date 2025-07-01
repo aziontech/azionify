@@ -319,7 +319,7 @@ def is_positive_operator(operator: str) -> bool:
         "DOES_NOT_EQUAL", "DOES_NOT_EQUAL_ONE_OF",
         "DOES_NOT_MATCH", "DOES_NOT_MATCH_ONE_OF",
         "DOES_NOT_START_WITH", "DOES_NOT_EXIST",
-        "IS_NOT_ONE_OF"
+        "IS_NOT_ONE_OF", "IS_NOT"
     }
     return operator not in negative_operators
 
