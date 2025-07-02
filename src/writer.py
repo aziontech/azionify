@@ -3,6 +3,7 @@ import logging
 from utils import sanitize_name, write_indented, resources_filter_by_type, resources_filter_by_name
 from io import StringIO
 import json
+from akamai.utils import filter_rules_engine_by_phase, smart_chain_rule_engine_dependencies
 
 logging.basicConfig(level=logging.INFO)
 
@@ -378,9 +379,9 @@ def write_rule_engine_block(f, resource: Dict[str, Any]) -> None:
             write_indented(f, "]", 2)
 
         # Write order if present
-        order = results.get("order")
-        if order is not None:
-            write_indented(f, f"order = {int(order)}", 2)
+        #order = results.get("order")
+        #if order is not None:
+        #    write_indented(f, f"order = {int(order)}", 2)
 
         # Close blocks
         write_indented(f, "}", 1)
@@ -600,9 +601,14 @@ def write_terraform_file(filepath: str, config: Dict[str, Any]) -> None:
                     default_rule_engine = default_rule_engine[0] if default_rule_engine else None
                     if default_rule_engine:
                         write_rule_engine_block(f, default_rule_engine)
-                for rule_engine in rules_engines:
-                    if rule_engine.get("name","") != "default":
-                        write_rule_engine_block(f, rule_engine)
+                rules = filter_rules_engine_by_phase(rules_engines, "request")
+                rules, cycles = smart_chain_rule_engine_dependencies(rules)
+                for rule_engine in rules:
+                    write_rule_engine_block(f, rule_engine)
+                rules = filter_rules_engine_by_phase(rules_engines, "response")
+                rules, cycles = smart_chain_rule_engine_dependencies(rules)
+                for rule_engine in rules:
+                    write_rule_engine_block(f, rule_engine)
 
             # Write edge function block
             edge_functions = resources_filter_by_type(resources, "azion_edge_function")
