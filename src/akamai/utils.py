@@ -620,7 +620,7 @@ def chain_rule_engine_dependencies(rules, order='asc', preserve_existing=True):
             reverse=(order == 'desc')
         )
     except (TypeError, KeyError) as e:
-        raise ValueError(f"Error sorting rules: {e}")
+        raise ValueError(f"Error sorting rules: {e}") from e
 
     # Create mapping of rule names for quick lookup
     rule_names = {rule.get('name') for rule in sorted_rules if isinstance(rule, dict) and rule.get('name')}
