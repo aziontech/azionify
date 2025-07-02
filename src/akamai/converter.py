@@ -163,6 +163,7 @@ def process_rule_behaviors(
     context["main_setting_name"] = main_setting_name
     context["rule_name"] = rule.get("name")
     context["rule_index"] = index
+    context["variables"] = rule.get("variables",[])
     
     # Process Origin first
     origin_behavior = next(filter(lambda b: b.get('name') == 'origin', behaviors), None)
