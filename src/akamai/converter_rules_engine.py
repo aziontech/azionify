@@ -49,6 +49,32 @@ def create_order_factory():
 create_request_rule_order = create_order_factory()
 create_response_rule_order = create_order_factory()
 
+def create_behavior_from_variables(variables: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    azion_behaviors = []
+    for var in variables:
+        varname = var.get("name")
+        if not varname:
+            continue
+
+        value = var.get("value")
+        if not value or value == "":
+            continue
+
+        if "PMUSER_" in varname:
+            varname = varname.removeprefix('PMUSER_')
+        varname = varname[:10]
+        varname = sanitize_name(varname)
+
+        azion_behavior = {
+            "name": "add_request_header",
+            "enabled": True,
+            "target": {
+                "target": f'\"{varname}: {value}\"'
+            },
+            "phase": "request"
+        }
+        azion_behaviors.append(azion_behavior)
+    return azion_behaviors
 
 def create_rule_engine(
         azion_resources: AzionResource,
@@ -93,6 +119,7 @@ def create_rule_engine(
             processed_rule = process_conditional_rule(rule)
             context["rule"] = processed_rule
             context["resources"] = resources
+            context["variables"] = rule.get("variables", [])
 
             # Process behaviors and criteria
             azion_behaviors, depends_on_behaviors = process_behaviors(azion_resources, behaviors, context, rule_name)
@@ -990,6 +1017,12 @@ def process_behaviors(
 
     logging.info(f"[rules_engine][process_behaviors] Rule = '{rule_name}', Parent rule = '{parent_rule_name}'")
     logging.info(f'[rules_engine][process_behaviors] Processing {len(behaviors)} behaviors')
+
+    # Create headers to represent the variables of property
+    if rule_name == "default":
+        default_behaviors = create_behavior_from_variables(context.get("variables",[]))
+        if len(default_behaviors) > 0:
+            azion_behaviors.extend(default_behaviors)
 
     for behavior in behaviors:
         ak_behavior_name = behavior.get("name")
