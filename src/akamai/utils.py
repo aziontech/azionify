@@ -574,3 +574,300 @@ def format_varitens_pattern(itens: List[str]) -> str:
     regex = '({})'.format("|".join(itens))
     return regex
 
+def filter_rules_engine_by_phase(rules, target_phase):
+    """
+    Filters a list of rules engines by the given phase.
+
+    Parameters:
+    - rules: list of dictionaries containing rules engines.
+    - target_phase: string indicating the desired phase (e.g., 'request').
+
+    Returns:
+    - A list of rules where the 'phase' field matches the target_phase.
+    """
+    return [rule for rule in rules if rule.get('phase') == target_phase]
+
+
+def chain_rule_engine_dependencies(rules, order='asc', preserve_existing=True):
+    """
+    Sort rules by 'order' and add a dependency on the previous rule,
+    formatted as 'azion_edge_application_rule_engine.<rule_name>'.
+    Preserves existing valid dependencies while removing circular ones.
+
+    Parameters:
+    - rules: list of dictionaries representing the rules.
+    - order: 'asc' (default) or 'desc' for sorting.
+    - preserve_existing: if True, preserves existing non-circular dependencies.
+
+    Returns:
+    - List of rules with consistent, safe dependencies.
+    """
+    # Input validation
+    if not isinstance(rules, list):
+        raise TypeError("Parameter 'rules' must be a list.")
+    
+    if order not in ('asc', 'desc'):
+        raise ValueError("Parameter 'order' must be 'asc' or 'desc'.")
+    
+    if not rules:
+        return []
+
+    # Sort rules based on 'order' field
+    try:
+        sorted_rules = sorted(
+            rules, 
+            key=lambda r: r.get('order', 0) if isinstance(r, dict) else 0, 
+            reverse=(order == 'desc')
+        )
+    except (TypeError, KeyError) as e:
+        raise ValueError(f"Error sorting rules: {e}")
+
+    # Create mapping of rule names for quick lookup
+    rule_names = {rule.get('name') for rule in sorted_rules if isinstance(rule, dict) and rule.get('name')}
+    
+    # Process each rule
+    for i, rule in enumerate(sorted_rules):
+        if not isinstance(rule, dict):
+            continue
+            
+        name = rule.get('name')
+        if not name or not isinstance(name, str):
+            continue
+
+        attributes = rule.setdefault('attributes', {})
+        existing_deps = attributes.get('depends_on', [])
+        
+        # Ensure depends_on is a list and create a copy
+        if not isinstance(existing_deps, list):
+            existing_deps = []
+        else:
+            existing_deps = existing_deps.copy()
+
+        cleaned_deps = []
+        
+        if preserve_existing:
+            # Remove self-dependencies and dependencies on non-existent rules
+            self_ref = f'azion_edge_application_rule_engine.{name}'
+            
+            for dep in existing_deps:
+                if dep == self_ref:
+                    continue
+                
+                # Extract rule name from dependency
+                if dep.startswith('azion_edge_application_rule_engine.'):
+                    dep_rule_name = dep.split('.')[-1]
+                    # Only keep if the target rule exists
+                    if dep_rule_name in rule_names:
+                        cleaned_deps.append(dep)
+                else:
+                    # Keep non-azion dependencies as-is
+                    cleaned_deps.append(dep)
+
+        # Add dependency on previous rule if not first
+        if i > 0:
+            prev_rule = sorted_rules[i - 1]
+            if isinstance(prev_rule, dict):
+                prev_name = prev_rule.get('name')
+                if prev_name and isinstance(prev_name, str) and prev_name != name:
+                    prev_ref = f'azion_edge_application_rule_engine.{prev_name}'
+                    if prev_ref not in cleaned_deps:
+                        cleaned_deps.append(prev_ref)
+
+        attributes['depends_on'] = cleaned_deps
+
+    return sorted_rules
+
+
+def detect_and_resolve_circular_dependencies(rules):
+    """
+    Detect circular dependencies and resolve them by removing problematic ones.
+    
+    Parameters:
+    - rules: list of rule dictionaries
+    
+    Returns:
+    - tuple: (rules_with_cycles_removed, removed_dependencies, remaining_cycles)
+    """
+    import copy
+    
+    # Work with a deep copy to avoid modifying original
+    working_rules = copy.deepcopy(rules)
+    removed_deps = []
+    max_iterations = len(rules) * 2  # Prevent infinite loops
+    iteration = 0
+    
+    while iteration < max_iterations:
+        cycles = detect_circular_dependencies(working_rules)
+        
+        if not cycles:
+            break  # No more cycles found
+        
+        # Remove one dependency from the first cycle found
+        cycle = cycles[0]
+        if len(cycle) >= 2:
+            # Remove dependency from last rule in cycle to first rule
+            last_rule_ref = cycle[-2]  # Second to last (before the repeat)
+            first_rule_ref = cycle[0]
+            
+            # Find the rule and remove the problematic dependency
+            for rule in working_rules:
+                if not isinstance(rule, dict):
+                    continue
+                
+                rule_name = rule.get('name')
+                if not rule_name:
+                    continue
+                
+                rule_ref = f'azion_edge_application_rule_engine.{rule_name}'
+                
+                if rule_ref == last_rule_ref:
+                    depends_on = rule.get('attributes', {}).get('depends_on', [])
+                    if first_rule_ref in depends_on:
+                        depends_on.remove(first_rule_ref)
+                        removed_deps.append((last_rule_ref, first_rule_ref))
+                        print(f"🔧 Removida dependência circular: {rule_name} → {first_rule_ref.split('.')[-1]}")
+                        break
+        
+        iteration += 1
+    
+    # Check if any cycles remain
+    final_cycles = detect_circular_dependencies(working_rules)
+    
+    return working_rules, removed_deps, final_cycles
+
+
+def detect_circular_dependencies(rules):
+    """
+    Detect circular dependencies in rules.
+    
+    Parameters:
+    - rules: list of rule dictionaries
+    
+    Returns:
+    - list of lists representing circular dependency paths
+    """
+    dependencies = {}
+    
+    # Build dependency graph
+    for rule in rules:
+        if not isinstance(rule, dict):
+            continue
+        
+        name = rule.get('name')
+        if not name:
+            continue
+            
+        rule_ref = f'azion_edge_application_rule_engine.{name}'
+        depends_on = rule.get('attributes', {}).get('depends_on', [])
+        
+        # Filter only azion rule dependencies
+        azion_deps = [dep for dep in depends_on 
+                     if isinstance(dep, str) and dep.startswith('azion_edge_application_rule_engine.')]
+        
+        dependencies[rule_ref] = azion_deps
+    
+    # Find cycles using DFS
+    def find_cycles():
+        visited = set()
+        rec_stack = set()
+        cycles = []
+        
+        def dfs(node, path):
+            if node in rec_stack:
+                # Found cycle
+                cycle_start = path.index(node)
+                cycle = path[cycle_start:] + [node]
+                cycles.append(cycle)
+                return
+            
+            if node in visited:
+                return
+            
+            visited.add(node)
+            rec_stack.add(node)
+            path.append(node)
+            
+            for neighbor in dependencies.get(node, []):
+                if neighbor in dependencies:  # Only follow if target exists
+                    dfs(neighbor, path)
+            
+            rec_stack.remove(node)
+            path.pop()
+        
+        for node in dependencies:
+            if node not in visited:
+                dfs(node, [])
+        
+        return cycles
+    
+    return find_cycles()
+
+
+def smart_chain_rule_engine_dependencies(rules, order='asc', strategy='preserve_and_fix'):
+    """
+    Intelligently chain rule dependencies with multiple strategies.
+    
+    Parameters:
+    - rules: list of rule dictionaries
+    - order: 'asc' or 'desc' for sorting
+    - strategy: 'preserve_and_fix', 'clean_slate', or 'minimal_changes'
+    
+    Returns:
+    - tuple: (processed_rules, report)
+    """
+    report = {
+        'original_cycles': [],
+        'removed_dependencies': [],
+        'final_cycles': [],
+        'preserved_dependencies': 0,
+        'added_dependencies': 0
+    }
+    
+    # Detect initial cycles
+    original_cycles = detect_circular_dependencies(rules)
+    report['original_cycles'] = original_cycles
+    
+    if strategy == 'preserve_and_fix':
+        if original_cycles:
+            print(f"🔍 Detectadas {len(original_cycles)} dependências circulares")
+            
+            # Remove circular dependencies first
+            rules_no_cycles, removed_deps, remaining_cycles = detect_and_resolve_circular_dependencies(rules)
+            report['removed_dependencies'] = removed_deps
+            
+            if remaining_cycles:
+                print(f"⚠️  {len(remaining_cycles)} dependências circulares não puderam ser resolvidas automaticamente")
+                report['final_cycles'] = remaining_cycles
+            else:
+                print("✅ Todas as dependências circulares foram resolvidas")
+        else:
+            rules_no_cycles = rules
+        
+        # Count existing dependencies before processing
+        existing_deps = sum(len(rule.get('attributes', {}).get('depends_on', [])) 
+                          for rule in rules_no_cycles if isinstance(rule, dict))
+        
+        # Apply chaining while preserving existing dependencies
+        processed_rules = chain_rule_engine_dependencies(rules_no_cycles, order, preserve_existing=True)
+        
+        # Count dependencies after processing
+        final_deps = sum(len(rule.get('attributes', {}).get('depends_on', [])) 
+                        for rule in processed_rules if isinstance(rule, dict))
+        
+        report['preserved_dependencies'] = existing_deps - len(report['removed_dependencies'])
+        report['added_dependencies'] = final_deps - existing_deps + len(report['removed_dependencies'])
+    
+    elif strategy == 'clean_slate':
+        processed_rules = chain_rule_engine_dependencies(rules, order, preserve_existing=False)
+        report['added_dependencies'] = len(processed_rules) - 1  # Chain adds n-1 dependencies
+    
+    elif strategy == 'minimal_changes':
+        # Only add chain dependencies, don't remove anything unless circular
+        if original_cycles:
+            rules_no_cycles, removed_deps, _ = detect_and_resolve_circular_dependencies(rules)
+            report['removed_dependencies'] = removed_deps
+            processed_rules = chain_rule_engine_dependencies(rules_no_cycles, order, preserve_existing=True)
+        else:
+            processed_rules = chain_rule_engine_dependencies(rules, order, preserve_existing=True)
+    
+    return processed_rules, report

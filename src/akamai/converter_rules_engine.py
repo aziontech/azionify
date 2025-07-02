@@ -220,6 +220,8 @@ def assemble_request_rule(
         resource = {
             "type": "azion_edge_application_rule_engine",
             "name": rule_name, 
+            "order": order,
+            "phase": phase,
             "attributes": {
                 "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
                 "results": {
@@ -254,6 +256,8 @@ def assemble_request_rule(
             resource = {
                 "type": "azion_edge_application_rule_engine",
                 "name": unique_rule_name, 
+                "order": order,
+                "phase": "request",
                 "attributes": {
                     "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
                     "results": {
@@ -321,9 +325,12 @@ def assemble_response_rule(
         return None
 
     rule_description = rule.get("comments", "").replace("\n", " ").replace("\r", " ").replace("\"", "'")
+    order = create_response_rule_order()
     resource = {
         "type": "azion_edge_application_rule_engine",
         "name": unique_rule_name,
+        "order": order,
+        "phase": "response",
         "attributes": {
             "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
             "results": {
@@ -331,10 +338,9 @@ def assemble_response_rule(
                 "description": rule_description,
                 "phase": "response",
                 "behaviors": behaviors,
-                "order": create_response_rule_order()
+                "order": order
             },
-            "depends_on": depends_on,
-            "order": index
+            "depends_on": depends_on
         }
     }
 
