@@ -18,7 +18,6 @@ from utils import (
     find_function, 
     compact_and_sanitize, 
     transform_expression,
-    merge_unique,
 )
 
 DEFAULT_CRITERIA = {

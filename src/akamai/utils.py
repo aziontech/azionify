@@ -905,8 +905,6 @@ def merge_criteria(current_criteria, parent_criteria):
     return merged
 
 
-import copy
-
 def normalize_conditionals(entries, criteria_has_condition="all"):
     """
     Deep copies and normalizes the 'conditional' field for a list of criteria entries.

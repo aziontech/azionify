@@ -8,7 +8,7 @@ from akamai.converter_origin import create_origin
 from akamai.converter_waf import create_waf_rule
 from akamai.converter_cache_settings import create_cache_setting
 from akamai.converter_rules_engine import create_rule_engine
-from .utils import merge_criteria
+
 
 
 logging.basicConfig(level=logging.DEBUG)
