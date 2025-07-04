@@ -475,3 +475,24 @@ def transform_expression(expression: str, value: str) -> str:
     
     # Regex that captures $ followed by one or more digits
     return re.sub(r"\$(\d+)", replacer, expression)
+
+def make_hashable(obj):
+    if isinstance(obj, dict):
+        return tuple(sorted((k, make_hashable(v)) for k, v in obj.items()))
+    elif isinstance(obj, list):
+        return tuple(make_hashable(x) for x in obj)
+    return obj
+
+def merge_unique(list1: List[Dict[str, Any]], list2: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    combined = list1 + list2
+    seen = set()
+    result = []
+
+    for item in combined:
+        # Create a hashable representation of the item
+        item_hashable = make_hashable(item)
+        if item_hashable not in seen:
+            seen.add(item_hashable)
+            result.append(item)
+
+    return result

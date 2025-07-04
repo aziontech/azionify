@@ -1,13 +1,14 @@
 import logging
 from typing import Dict, Any, List
 from azion_resources import AzionResource
-from utils import clean_and_parse_json, compact_and_sanitize, sanitize_name
+from utils import clean_and_parse_json, compact_and_sanitize, sanitize_name, merge_unique
 from akamai.converter_domain import create_domain
 from akamai.converter_main_settings import create_main_setting
 from akamai.converter_origin import create_origin
 from akamai.converter_waf import create_waf_rule
 from akamai.converter_cache_settings import create_cache_setting
 from akamai.converter_rules_engine import create_rule_engine
+
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -102,6 +103,7 @@ def process_rules(
         normalized_name = sanitize_name(rules.get("name", "unnamed_rule"))
         behaviors = rules.get("behaviors", [])
         children = rules.get("children", [])
+        criteria = rules.get("criteria", [])
 
         logging.info(f"[Akamai Rules] Found {len(behaviors)} behaviors and {len(children)} children for rule: '{normalized_name}'")
     
@@ -109,7 +111,14 @@ def process_rules(
             context = process_rule_behaviors(azion_resources, rules, main_setting_name, origin_hostname, 0, normalized_name)   
 
         if len(children) > 0:
-            process_rule_children(azion_resources, children, main_setting_name, origin_hostname, 0, normalized_name, context)
+            process_rule_children(azion_resources, 
+                                children, 
+                                main_setting_name, 
+                                origin_hostname, 
+                                0, 
+                                normalized_name, 
+                                criteria, 
+                                context)
     
     elif isinstance(rules, list):
         logging.debug("Rules provided as a list. Processing each rule.")
@@ -124,7 +133,14 @@ def process_rules(
                 context = process_rule_behaviors(azion_resources, rule, main_setting_name, origin_hostname, index, normalized_name)
 
             if len(children) > 0:
-                process_rule_children(azion_resources, children, main_setting_name, origin_hostname, index, normalized_name, context)
+                process_rule_children(azion_resources, 
+                                        children, 
+                                        main_setting_name, 
+                                        origin_hostname, 
+                                        index, 
+                                        normalized_name, 
+                                        criteria,
+                                        context)
     
     else:
         logging.warning(f"[Akamai Rules] Unexpected type for rules: {type(rules)}. Skipping rule processing.")
@@ -164,6 +180,7 @@ def process_rule_behaviors(
     context["rule_name"] = rule.get("name")
     context["rule_index"] = index
     context["variables"] = rule.get("variables",[])
+    context["criteria"] = rule.get("criteria",[])
     
     # Process Origin first
     origin_behavior = next(filter(lambda b: b.get('name') == 'origin', behaviors), None)
@@ -211,6 +228,7 @@ def process_rule_children(
         origin_hostname: str,
         parent_rule_index: int,
         parent_rule_name: str,
+        parent_criteria: List[Dict[str, Any]],
         parent_context: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
     """
@@ -232,6 +250,7 @@ def process_rule_children(
     context["parent_rule_name"] = parent_rule_name
     context["parent_context"] = parent_context
     context["main_setting_name"] = main_setting_name 
+    criteria = []
 
     # Rules Processing
     for index, rule in enumerate(children):
@@ -239,6 +258,10 @@ def process_rule_children(
         child_index = (parent_rule_index * child_priority_multiplier) + index
         context["rule_name"] = rule_name
         context["rule_index"] = child_index
+        criteria = rule.get("criteria", [])
+        if len(parent_criteria) > 0:
+            criteria = merge_unique(criteria, parent_criteria)
+        context["criteria"] = criteria
 
         logging.info(
             f"[Akamai Rules][Children] Rule name: '{rule_name}', "
@@ -301,7 +324,14 @@ def process_rule_children(
             children = rule.get("children", [])
             if len(children) > 0:
                 logging.info(f"[Akamai Rules][Children] Rule '{rule_name}' has {len(children)} inner children rules. Processing...")
-                process_rule_children(azion_resources, children, main_setting_name, origin_hostname, index, rule_name, context)
+                process_rule_children(azion_resources, 
+                                    children, 
+                                    main_setting_name, 
+                                    origin_hostname, 
+                                    index, 
+                                    rule_name, 
+                                    criteria, 
+                                    context)
 
         except ValueError as e:
             logging.error(f"[Akamai Rules][Children] Error processing rule engine for rule {rule_name}: {e}")
