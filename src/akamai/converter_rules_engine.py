@@ -17,7 +17,8 @@ from utils import (
     sanitize_name, 
     find_function, 
     compact_and_sanitize, 
-    transform_expression
+    transform_expression,
+    merge_unique,
 )
 
 DEFAULT_CRITERIA = {
@@ -36,18 +37,19 @@ BEHAVIOR_CACHE_PHASE = ["NO_STORE", "NO_CACHE"]
 
 
 # Create order factory
-def create_order_factory():
+def create_order_factory(multiplier: int=10) -> int:
     current = 2
 
     def create_order() -> int:
         nonlocal current
         value = current
         current += 1
-        return (value * 10)
+        return (value * multiplier)
     
     return create_order
 create_request_rule_order = create_order_factory()
 create_response_rule_order = create_order_factory()
+create_variable_rule_order = create_order_factory(multiplier=1)
 
 def create_behavior_from_variables(variables: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     azion_behaviors = []
@@ -105,7 +107,7 @@ def create_rule_engine(
 
     # Extract behaviors and criteria
     behaviors = rule.get("behaviors", [])
-    criteria = rule.get("criteria", [])
+    criteria = context.get("criteria", [])
     rule_condition = rule.get("criteriaMustSatisfy", "one")
 
     logging.info(
@@ -119,7 +121,6 @@ def create_rule_engine(
             processed_rule = process_conditional_rule(rule)
             context["rule"] = processed_rule
             context["resources"] = resources
-            context["variables"] = rule.get("variables", [])
 
             # Process behaviors and criteria
             azion_behaviors, depends_on_behaviors = process_behaviors(azion_resources, behaviors, context, rule_name)
@@ -129,6 +130,19 @@ def create_rule_engine(
             # Handling depends_on
             depends_on = [f"azion_edge_application_main_setting.{main_setting_name}"]
             depends_on.extend(list(depends_on_behaviors))
+
+            # Handling default variables
+            if rule_name == "default":
+                variables_behaviors = create_behavior_from_variables(rule.get("variables", []))
+                slices = [variables_behaviors[i:i+10] for i in range(0, len(variables_behaviors), 10)]
+                for behaviors in slices:
+                    rule = create_variable_rule(
+                        'default_variables',
+                        behaviors,
+                        main_setting_name,
+                        azion_criteria.get("request_default", []),
+                        depends_on)
+                    resources.append(rule)
 
             # Handling behaviors by phase
             request_behaviors = []
@@ -182,6 +196,45 @@ def create_rule_engine(
         logging.error(f"[rules_engine] Error processing rule '{rule_name}': {str(e)}")
 
     return resources
+
+def create_variable_rule(
+        name: str,
+        behaviors: List[Dict[str, Any]],
+        main_setting_name: str,
+        criteria: List[Dict[str, Any]],
+        depends_on: List[str]
+    ) -> Dict[str, Any]:
+    """
+    Create a variable rule engine resource from Akamai variable data.
+
+    Parameters:
+        behaviors (List[Dict[str, Any]]): Akamai variable data
+        main_setting_name (str): Name of the main setting
+        depends_on (List[str]): List of dependencies for the rule
+
+    Returns:
+        List[Dict[str, Any]]: List of variable rule engine resources
+    """
+    order = create_variable_rule_order()
+    resource = {
+        "type": "azion_edge_application_rule_engine",
+        "name": f'{compact_and_sanitize(name)}_{order}',
+        "order": order,
+        "phase": "request",
+        "attributes": {
+            "edge_application_id": f"azion_edge_application_main_setting.{main_setting_name}.edge_application.application_id",
+            "results": {
+                "name": f'{compact_and_sanitize(name)}_{order}',
+                "description": "",
+                "phase": "request",
+                "behaviors": behaviors,
+                "criteria": criteria,
+                "order": order
+            },
+            "depends_on": depends_on
+        }
+    }
+    return resource
 
 def assemble_request_rule(
         rule: Dict[str, Any],
@@ -480,7 +533,7 @@ def process_criteria(
         rule: Dict[str, Any],
         criteria: List[Dict[str, Any]],
         behaviors_names: List[str],
-        rule_condition: str
+        rule_condition: str,
     ) -> List[Dict[str, Any]]:
     """
     Processes and maps Akamai criteria to Azion-compatible criteria.
@@ -496,6 +549,7 @@ def process_criteria(
     azion_criteria = {}
     request_entries = []
     response_entries = []
+    criteria_has_condition = rule.get("criteriaMustSatisfy", "one")
 
     logging.info(f'[rules_engine][process_criteria] Processing criteria for rule: {rule.get("name")}')
     if not criteria:
@@ -514,7 +568,6 @@ def process_criteria(
             logging.warning(f"[rules_engine][process_criteria] No mapping found for criterion: {name}. Skipping.")
             continue
         # Map Akamai's criteriaMustSatisfy to Azion's conditional
-        criteria_has_condition = rule.get("criteriaMustSatisfy", "one")
         group_conditional = CONDITIONAL_MAP.get(criteria_has_condition, "one") if index == 0 else CONDITIONAL_MAP.get(rule_condition, "and") 
 
         try:
@@ -982,6 +1035,10 @@ def process_forward_rewrite(context,
                                     forwardRewrite_criteria, 
                                     forwardRewrite_behaviors, 
                                     depends_on)
+
+    if len(resource) > 0:
+        if resource[0]['order'] < 100:
+            resource[0]['order'] = 100
     return resource
 
 def process_behaviors(
@@ -1017,12 +1074,6 @@ def process_behaviors(
 
     logging.info(f"[rules_engine][process_behaviors] Rule = '{rule_name}', Parent rule = '{parent_rule_name}'")
     logging.info(f'[rules_engine][process_behaviors] Processing {len(behaviors)} behaviors')
-
-    # Create headers to represent the variables of property
-    if rule_name == "default":
-        default_behaviors = create_behavior_from_variables(context.get("variables",[]))
-        if len(default_behaviors) > 0:
-            azion_behaviors.extend(default_behaviors)
 
     for behavior in behaviors:
         ak_behavior_name = behavior.get("name")

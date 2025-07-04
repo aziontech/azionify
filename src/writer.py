@@ -304,8 +304,8 @@ def write_rule_engine_block(f, resource: Dict[str, Any]) -> None:
         normalized_name = resource.get("name")
         order = resource.get("order", 0)
 
-        if "offload_origin" in normalized_name:
-            return
+        #if "offload_origin" in normalized_name:
+        #    return
         # Write resource block header
         write_indented(f, f'resource "azion_edge_application_rule_engine" "{normalized_name}" {{', 0)
         write_indented(f, f'edge_application_id = {attributes.get("edge_application_id")}', 1)

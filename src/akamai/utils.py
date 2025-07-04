@@ -1,5 +1,6 @@
 import logging
 import re
+import copy
 from typing import Dict, Any, Optional, List, Union
 from utils import clean_and_parse_json, sanitize_name
 
@@ -871,3 +872,59 @@ def smart_chain_rule_engine_dependencies(rules, order='asc', strategy='preserve_
             processed_rules = chain_rule_engine_dependencies(rules, order, preserve_existing=True)
     
     return processed_rules, report
+
+def merge_criteria(current_criteria, parent_criteria):
+    """
+    Merge `criterias` into `combined_criteria`.
+    If a key exists in both dictionaries and both have an 'entries' list, the lists are concatenated.
+    If a key exists only in `parent_criteria`, it is added to the result.
+
+    Returns a new merged dictionary.
+    """
+    if not isinstance(current_criteria, dict):
+        raise ValueError("current_criteria must be a dict")
+    if not isinstance(parent_criteria, dict):
+        parent_criteria = {}  # treat None as empty dict
+
+    merged = copy.deepcopy(current_criteria)
+
+    for key, value in parent_criteria.items():
+        if key not in merged:
+            merged[key] = copy.deepcopy(value)
+        else:
+            if isinstance(merged[key], dict) and 'entries' in merged[key] and 'entries' in value:
+                existing_entries = {frozenset(entry.items()) for entry in merged[key]['entries']}
+                for entry in value['entries']:
+                    entry_key = frozenset(entry.items())
+                    if entry_key not in existing_entries:
+                        merged[key]['entries'].append(entry)
+                        existing_entries.add(entry_key)
+            else:
+                raise ValueError(f"Conflict merging key '{key}': unexpected structure.")
+
+    return merged
+
+
+import copy
+
+def normalize_conditionals(entries, criteria_has_condition="all"):
+    """
+    Deep copies and normalizes the 'conditional' field for a list of criteria entries.
+    
+    Parameters:
+    - entries (list): List of entry dictionaries.
+    - criteria_has_condition (str): 'all' sets conditionals to 'and' (after the first), 
+                                    otherwise uses 'or'.
+    
+    Returns:
+    - list: A new list with modified entries.
+    """
+    normalized = []
+    for index, entry in enumerate(entries):
+        entry_copy = copy.deepcopy(entry)
+        if index == 0:
+            entry_copy["conditional"] = "if"
+        else:
+            entry_copy["conditional"] = "and" if criteria_has_condition == "all" else "or"
+        normalized.append(entry_copy)
+    return normalized
