@@ -689,8 +689,6 @@ def detect_and_resolve_circular_dependencies(rules):
     Returns:
     - tuple: (rules_with_cycles_removed, removed_dependencies, remaining_cycles)
     """
-    import copy
-    
     # Work with a deep copy to avoid modifying original
     working_rules = copy.deepcopy(rules)
     removed_deps = []
