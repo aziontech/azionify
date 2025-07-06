@@ -3,6 +3,7 @@ import re
 import copy
 from typing import Dict, Any, Optional, List, Union
 from utils import clean_and_parse_json, sanitize_name
+from collections import defaultdict
 
 OPERATOR_MAP = {
     "EQUALS": "is_equal",
@@ -924,3 +925,20 @@ def normalize_conditionals(entries, criteria_has_condition="all"):
             entry_copy["conditional"] = "and" if criteria_has_condition == "all" else "or"
         normalized.append(entry_copy)
     return normalized
+
+
+def group_criterias_by_parent(entries):
+    """
+    Groups a list of entry dictionaries by the 'parent' key.
+
+    Parameters:
+    - entries: List of dictionaries, each with a 'parent' key.
+
+    Returns:
+    - Dictionary where keys are parent names (or '' if missing) and values are lists of criteria.
+    """
+    grouped = defaultdict(list)
+    for entry in entries:
+        parent = entry.get('parent', '')
+        grouped[parent].append(entry)
+    return dict(grouped)

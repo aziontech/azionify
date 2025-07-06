@@ -3,7 +3,7 @@ import logging
 from utils import sanitize_name, write_indented, resources_filter_by_type, resources_filter_by_name
 from io import StringIO
 import json
-from akamai.utils import filter_rules_engine_by_phase, smart_chain_rule_engine_dependencies
+from akamai.utils import filter_rules_engine_by_phase, normalize_conditionals, smart_chain_rule_engine_dependencies, group_criterias_by_parent
 
 logging.basicConfig(level=logging.INFO)
 
@@ -357,25 +357,28 @@ def write_rule_engine_block(f, resource: Dict[str, Any]) -> None:
 
         # Write criteria if present
         criteria = results.get("criteria", {})
+        criterias_by_parent = group_criterias_by_parent(criteria.get("entries", []))
         if criteria:
             write_indented(f, "criteria = [", 2)
-            #for criterion in criteria:
-            write_indented(f, "{", 3)
-            write_indented(f, "entries = [", 4)
-            for entry in criteria.get("entries", []):
-                write_indented(f, "{", 5)
-                write_indented(f, f'variable    = "{entry.get("variable", "")}"', 6)
-                write_indented(f, f'operator    = "{entry.get("operator", "matches")}"', 6)
-                write_indented(f, f'conditional = "{entry.get("conditional", "and")}"', 6)
+            for parent, criterias in criterias_by_parent.items():
+                if criterias[0].get("parent_rule_condition"):
+                    criterias = normalize_conditionals(criterias, criterias[0].get("parent_rule_condition"))
+                write_indented(f, "{", 3)
+                write_indented(f, "entries = [", 4)
+                for entry in criterias:
+                    write_indented(f, "{", 5)
+                    write_indented(f, f'variable    = "{entry.get("variable", "")}"', 6)
+                    write_indented(f, f'operator    = "{entry.get("operator", "matches")}"', 6)
+                    write_indented(f, f'conditional = "{entry.get("conditional", "and")}"', 6)
 
-                # Handle input_value safely
-                input_value = entry.get("input_value", "*")
-                if input_value:
-                    write_indented(f, f'input_value = "{input_value}"', 6)
+                    # Handle input_value safely
+                    input_value = entry.get("input_value", "*")
+                    if input_value:
+                        write_indented(f, f'input_value = "{input_value}"', 6)
 
-                write_indented(f, "},", 5)
-            write_indented(f, "]", 4)
-            write_indented(f, "},", 3)
+                    write_indented(f, "},", 5)
+                write_indented(f, "]", 4)
+                write_indented(f, "},", 3)
             write_indented(f, "]", 2)
 
         # Write order if present

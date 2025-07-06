@@ -509,6 +509,7 @@ def process_criteria_default(behaviors_names: List[str]) -> Dict[str, Any]:
                 "conditional": mapping.get("conditional"),
                 "phase": mapping.get("phase", "request"),
                 "akamai_behavior": mapping.get("akamai_behavior", ""),
+                "parent": ""
             }
             if mapping.get("azion_operator"):
                 entry["input_value"] = mapping.get("input_value")
@@ -615,6 +616,8 @@ def process_criteria(
                 "operator": azion_operator,
                 "conditional": group_conditional,
                 "akamai_behavior": mapping.get("akamai_behavior",""),
+                "parent": criterion.get('parent', ""),
+                "parent_rule_condition": criterion.get('parent_rule_condition', "")
             }
             if input_value is not None:
                 entry["input_value"] = input_value.replace("\r", "")
@@ -1011,7 +1014,8 @@ def process_forward_rewrite(context,
                     "operator": "exists",
                     "conditional": "if",
                     "input_value": "*",
-                    "akamai_behavior": "forwardRewrite"
+                    "akamai_behavior": "forwardRewrite",
+                    "parent": ""
                 }
             ]
         }

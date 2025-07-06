@@ -104,6 +104,7 @@ def process_rules(
         behaviors = rules.get("behaviors", [])
         children = rules.get("children", [])
         criteria = rules.get("criteria", [])
+        rule_condition = rules.get("criteriaMustSatisfy", "one")
 
         logging.info(f"[Akamai Rules] Found {len(behaviors)} behaviors and {len(children)} children for rule: '{normalized_name}'")
     
@@ -117,7 +118,8 @@ def process_rules(
                                 origin_hostname, 
                                 0, 
                                 normalized_name, 
-                                criteria, 
+                                criteria,
+                                rule_condition,
                                 context)
     
     elif isinstance(rules, list):
@@ -126,6 +128,8 @@ def process_rules(
             normalized_name = sanitize_name(rule.get("name", "unnamed_rule"))
             behaviors = rules.get("behaviors", [])
             children = rules.get("children", [])
+            criteria = rules.get("criteria", [])
+            rule_condition = rules.get("criteriaMustSatisfy", "one")
 
             logging.info(f"[Akamai Rules] Found {len(behaviors)} behaviors and {len(children)} children for rule: '{normalized_name}'")
 
@@ -140,6 +144,7 @@ def process_rules(
                                         index, 
                                         normalized_name, 
                                         criteria,
+                                        rule_condition,
                                         context)
     
     else:
@@ -229,6 +234,7 @@ def process_rule_children(
         parent_rule_index: int,
         parent_rule_name: str,
         parent_criteria: List[Dict[str, Any]],
+        parent_rule_condition: str,
         parent_context: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
     """
@@ -260,6 +266,9 @@ def process_rule_children(
         context["rule_index"] = child_index
         criteria = rule.get("criteria", [])
         if len(parent_criteria) > 0:
+            for item in parent_criteria:
+                item["parent"] = sanitize_name(parent_rule_name)
+                item["parent_rule_condition"] = parent_rule_condition
             criteria = merge_unique(criteria, parent_criteria)
         context["criteria"] = criteria
 
@@ -331,6 +340,7 @@ def process_rule_children(
                                     index, 
                                     rule_name, 
                                     criteria, 
+                                    rule.get("criteriaMustSatisfy", "one"),
                                     context)
 
         except ValueError as e:
