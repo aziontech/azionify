@@ -1233,6 +1233,11 @@ def process_behaviors(
             function_name = options.get("cloudletPolicy", {}).get("name", "")
             main_setting_name = context.get("main_setting_name", "unnamed")
 
+            # Fallback to the shared cloudlet policy when no dedicated policy is set
+            if cloudlet_id == "" and function_name == "":
+                cloudlet_id = options.get("cloudletSharedPolicy", "")
+                function_name = f"Shared {cloudlet_id}"
+
             _, global_settings = azion_resources.query_azion_resource_by_type('global_settings')
             function_map = global_settings.get("attributes",{}).get("function_map", None)
             mapped_function = find_function(function_map, cloudlet_id)
