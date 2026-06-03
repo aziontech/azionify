@@ -118,6 +118,12 @@ MAPPING = {
             "phase": "response",
             "akamai_behavior": "removeVary",
         },
+        "matchResponseCode": {
+            "azion_condition": "$${upstream_status}",
+            "azion_operator": "matches",
+            "phase": "response",
+            "input_value": lambda values: "^(%s)$" % "|".join(values).replace('/', r'\\/').replace('.', r'\\.')
+        },
     },
     "behaviors": {
         # Compression
@@ -317,6 +323,15 @@ MAPPING = {
             },
             "phase": "request",
             "akamai_behavior": "setVariable"
+        },
+
+        "failAction": {
+            "azion_behavior": lambda options: f"redirect_to_{options.get('redirectMethod', 301)}",
+             "target": {
+                "target": lambda options: f"$${{scheme}}://{options.get('redirectHostname', '')}{options.get('redirectPath', '')}"
+             },
+             "phase": "response",
+             "akamai_behavior": "failAction"
         },
 
         #Cloudlets
