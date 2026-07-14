@@ -983,8 +983,11 @@ def behavior_rewrite_request(options, name):
         azion_behavior = {
             "name": "rewrite_request",
             "enabled": True,
+            # Azion requires the Rewrite Request target to start with '/', ${uri}
+            # or ${request_uri}. The captured groups rebuild the path with the
+            # matched segment removed; prefix '/' so it is a valid absolute path.
             "target": {
-                "target": f"\"%%{{{captured_array}[1]}}%%{{{captured_array}[2]}}\""
+                "target": f"\"/%%{{{captured_array}[1]}}%%{{{captured_array}[2]}}\""
             },
             "phase": "request",
             "akamai_behavior": "rewriteUrl_PREPEND"
