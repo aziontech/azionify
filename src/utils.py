@@ -330,8 +330,8 @@ def clean_and_parse_json(json_string: str) -> Optional[Any]:
             try:
                 # If that fails, try to evaluate it as a Python literal
                 return ast.literal_eval(json_string)
-            except (ValueError, SyntaxError):
-                pass
+            except (ValueError, SyntaxError) as e:
+                logging.debug(f"ast.literal_eval fallback failed: {e}")
         
         # Try to parse as a plain object
         try:
