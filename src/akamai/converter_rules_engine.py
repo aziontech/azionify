@@ -962,7 +962,8 @@ def behavior_rewrite_request(options, name):
         behaviors.append(azion_behavior)
     elif option_behavior == "REMOVE":
         match_value = replace_variables(options.get('match', ''))
-        escaped_match = match_value.replace('/', r'\/').replace('.', r'\.')
+        # match arrives with raw '/' and '.', so double-escape for HCL (\\/ -> \/ in the regex).
+        escaped_match = match_value.replace('/', r'\\/').replace('.', r'\\.')
         regex_value = f"^(.*){escaped_match}(.*)$"
         captured_array = sanitize_name(name).upper()[:10]
         captured_array = re.sub(r"\d+", "", captured_array) # Remove all numeric characters
@@ -982,8 +983,11 @@ def behavior_rewrite_request(options, name):
         azion_behavior = {
             "name": "rewrite_request",
             "enabled": True,
+            # Azion requires the Rewrite Request target to start with '/', ${uri}
+            # or ${request_uri}. The captured groups rebuild the path with the
+            # matched segment removed; prefix '/' so it is a valid absolute path.
             "target": {
-                "target": f"\"%%{{{captured_array}[1]}}%%{{{captured_array}[2]}}\""
+                "target": f"\"/%%{{{captured_array}[1]}}%%{{{captured_array}[2]}}\""
             },
             "phase": "request",
             "akamai_behavior": "rewriteUrl_PREPEND"

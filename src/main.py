@@ -1,10 +1,22 @@
 import argparse
+import io
 import logging
+import re
 import hcl2
 import json
 from writer import write_terraform_file
 from akamai.akamai import akamai_converter
 from typing import Optional, List, Dict, Any
+
+# python-hcl2 (7.3.x) does not evaluate jsonencode(); it reconstructs the
+# expression as a string. Large numeric literals in scientific notation (e.g.
+# certificate serialNumbers like `3.12e+36`) are emitted as ${...} interpolations,
+# which triggers a greedy quote-unescaping bug that corrupts heredoc-derived
+# content downstream. Quoting these numbers before hcl2.load prevents the trigger
+# entirely (deterministic), leaving clean_and_parse_json's repair as a fallback.
+_SCIENTIFIC_NOTATION_ATTR = re.compile(
+    r'(?m)^(\s*[\w.-]+\s*=\s*)(\d+\.\d+[eE][+-]?\d+)(\s*(?:#.*)?)$'
+)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -22,7 +34,14 @@ def read_terraform_file(filepath: str) -> dict:
     try:
         with open(filepath, "r", encoding="utf-8") as file:
             logging.info(f"Reading file: {filepath}")
-            return hcl2.load(file)
+            content = file.read()
+            # Neutralize scientific-notation numeric literals before parsing so
+            # python-hcl2 does not turn them into ${...} interpolations (see note
+            # on _SCIENTIFIC_NOTATION_ATTR above).
+            content, count = _SCIENTIFIC_NOTATION_ATTR.subn(r'\1"\2"\3', content)
+            if count:
+                logging.info(f"Quoted {count} scientific-notation numeric literal(s) before parsing.")
+            return hcl2.load(io.StringIO(content))
     except FileNotFoundError as e:
         logging.error(f"File not found: {filepath}")
         raise e
