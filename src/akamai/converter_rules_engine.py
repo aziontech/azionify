@@ -34,6 +34,13 @@ CONDITIONAL_MAP = {
 }
 BEHAVIOR_CACHE_PHASE = ["NO_STORE", "NO_CACHE"]
 
+# Forward-rewrite must be the LAST request-phase rule: it rewrites the path from
+# the header set by the proxy function, and only works once set_origin (which
+# reads the origin header) has already run. A very high order guarantees it sorts
+# after every set_origin/cloudletsOrigin rule (orders increment by 10, so there
+# is huge headroom).
+FORWARD_REWRITE_ORDER = 9_999_999
+
 
 # Create order factory
 def create_order_factory(multiplier: int=10) -> int:
@@ -1044,8 +1051,8 @@ def process_forward_rewrite(context,
                                     depends_on)
 
     if len(resource) > 0:
-        if resource[0]['order'] < 100:
-            resource[0]['order'] = 100
+        if resource[0]['order'] < FORWARD_REWRITE_ORDER:
+            resource[0]['order'] = FORWARD_REWRITE_ORDER
     return resource
 
 def process_behaviors(
