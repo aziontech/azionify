@@ -7,7 +7,9 @@ from .utils import (
     format_filename_pattern,
     format_header_name,
     get_http_header_varname,
-    format_varitens_pattern
+    format_varitens_pattern,
+    format_regularexpression_pattern,
+    map_variable
 )
 
 # Mapping for Akamai to Azion behavior/criteria conversions
@@ -42,6 +44,15 @@ MAPPING = {
             "azion_condition": "$${uri}", 
             "azion_operator": lambda options: "matches" if is_positive_operator(options.get("matchOperator")) else "does_not_match",
             "input_value": format_path_pattern
+        },
+        "regularExpression": {
+            # Akamai matches an arbitrary variable (matchString, usually {{builtin.AK_PATH}} -> $${uri})
+            # against a raw regex (options.regex). There is no positive/negative operator; it is a plain match.
+            # format_regularexpression_pattern double-escapes the raw regex (\/, \\.) so Terraform's
+            # HCL parser does not consume the backslashes, matching the glob-derived criteria style.
+            "azion_condition": lambda options: map_variable(options.get("matchString", "{{builtin.AK_PATH}}")),
+            "azion_operator": "matches",
+            "input_value": format_regularexpression_pattern
         },
         "filename": {
             "azion_condition": "$${request_uri}", 
