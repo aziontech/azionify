@@ -101,6 +101,8 @@ Key fields:
 - `function_id`: The ID of the corresponding Azion edge function
 - `args`: Arguments for the function, which vary depending on the behavior type
 
+NOTE: For a `cloudletPolicy` or `cloudletSharedPolicy` to be processed, it must its ID included in the function map JSON, otherwise it will be ignored.
+
 ### Environment Parameter
 
 The `--environment` parameter affects how domains are configured in the generated Terraform:
