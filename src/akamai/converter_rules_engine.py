@@ -34,6 +34,13 @@ CONDITIONAL_MAP = {
 }
 BEHAVIOR_CACHE_PHASE = ["NO_STORE", "NO_CACHE"]
 
+# Forward-rewrite must be the LAST request-phase rule: it rewrites the path from
+# the header set by the proxy function, and only works once set_origin (which
+# reads the origin header) has already run. A very high order guarantees it sorts
+# after every set_origin/cloudletsOrigin rule (orders increment by 10, so there
+# is huge headroom).
+FORWARD_REWRITE_ORDER = 9_999_999
+
 
 # Create order factory
 def create_order_factory(multiplier: int=10) -> int:
@@ -590,6 +597,8 @@ def process_criteria(
             elif 'variableExpression' in options:
                 values = options.get("variableExpression", ['*'])
                 values = [values]
+            elif 'regex' in options:
+                values = [options.get("regex", "")]
             else:
                 values = [options.get("value", "")]
 
@@ -962,7 +971,8 @@ def behavior_rewrite_request(options, name):
         behaviors.append(azion_behavior)
     elif option_behavior == "REMOVE":
         match_value = replace_variables(options.get('match', ''))
-        escaped_match = match_value.replace('/', r'\/').replace('.', r'\.')
+        # match arrives with raw '/' and '.', so double-escape for HCL (\\/ -> \/ in the regex).
+        escaped_match = match_value.replace('/', r'\\/').replace('.', r'\\.')
         regex_value = f"^(.*){escaped_match}(.*)$"
         captured_array = sanitize_name(name).upper()[:10]
         captured_array = re.sub(r"\d+", "", captured_array) # Remove all numeric characters
@@ -982,8 +992,11 @@ def behavior_rewrite_request(options, name):
         azion_behavior = {
             "name": "rewrite_request",
             "enabled": True,
+            # Azion requires the Rewrite Request target to start with '/', ${uri}
+            # or ${request_uri}. The captured groups rebuild the path with the
+            # matched segment removed; prefix '/' so it is a valid absolute path.
             "target": {
-                "target": f"\"%%{{{captured_array}[1]}}%%{{{captured_array}[2]}}\""
+                "target": f"\"/%%{{{captured_array}[1]}}%%{{{captured_array}[2]}}\""
             },
             "phase": "request",
             "akamai_behavior": "rewriteUrl_PREPEND"
@@ -1040,8 +1053,8 @@ def process_forward_rewrite(context,
                                     depends_on)
 
     if len(resource) > 0:
-        if resource[0]['order'] < 100:
-            resource[0]['order'] = 100
+        if resource[0]['order'] < FORWARD_REWRITE_ORDER:
+            resource[0]['order'] = FORWARD_REWRITE_ORDER
     return resource
 
 def process_behaviors(

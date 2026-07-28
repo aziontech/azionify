@@ -207,10 +207,70 @@ def compact_and_sanitize(name: str, max_length: int = 90) -> str:
         compacted = compacted[:-1]
     return compacted
 
+def repair_hcl2_jsonencode(content: str) -> str:
+    """
+    Repairs the JSON-ish string produced by python-hcl2 (7.3.x) when it
+    reconstructs an *unevaluated* `jsonencode({...})` expression.
+
+    python-hcl2 does not evaluate `jsonencode()`; it rebuilds the expression as
+    a string, and that reconstruction has two quirks that yield invalid JSON:
+
+      1. Large numeric literals (e.g. certificate serial numbers exported in
+         scientific notation such as `3.12e+36`) are emitted as `${3.12e+36}`
+         interpolations instead of plain values.
+      2. Its interpolation handling uses a greedy regex that un-escapes the
+         double quotes inside string values located *after* such a `${...}`,
+         corrupting heredoc-derived content (e.g. `result="true"` where it
+         should have stayed `result=\\"true\\"`).
+
+    This step unwraps the numeric interpolations and re-escapes the stray
+    content quotes so the result can be parsed with json.loads.
+
+    :param content: The unwrapped content of a `${jsonencode(...)}` expression.
+    :return: A repaired string suitable for json.loads.
+    """
+    # 1) Unwrap numeric interpolations: ${3.12e+36} -> 3.12e+36
+    content = re.sub(r'\$\{(\d+\.\d+[eE][+-]?\d+)\}', r'\1', content)
+
+    # 2) Re-escape double quotes that appear inside string values. A quote only
+    #    closes a string when the next non-space char is a JSON structural token
+    #    (',' ':' '}' ']'); otherwise it is content and must be escaped.
+    out = []
+    in_string = False
+    i, n = 0, len(content)
+    while i < n:
+        char = content[i]
+        if not in_string:
+            out.append(char)
+            if char == '"':
+                in_string = True
+        else:
+            if char == '\\':
+                # Preserve existing escape sequences verbatim.
+                out.append(char)
+                if i + 1 < n:
+                    out.append(content[i + 1])
+                    i += 2
+                    continue
+            elif char == '"':
+                j = i + 1
+                while j < n and content[j] in ' \t\r\n':
+                    j += 1
+                if j >= n or content[j] in ',:}]':
+                    out.append(char)
+                    in_string = False
+                else:
+                    out.append('\\"')
+            else:
+                out.append(char)
+        i += 1
+    return ''.join(out)
+
+
 def clean_and_parse_json(json_string: str) -> Optional[Any]:
     """
     Clean and parse a JSON or HCL string.
-    
+
     :param json_string: String containing the JSON or HCL.
     :return: Parsed object or None if parsing fails.
     """
@@ -230,7 +290,15 @@ def clean_and_parse_json(json_string: str) -> Optional[Any]:
         if json_string.startswith('${jsonencode(') and json_string.endswith(')}'):
             # Extract content between jsonencode( and the last )
             json_string = json_string[len('${jsonencode('):-2]
-            
+
+            # Initial step: repair python-hcl2's jsonencode reconstruction
+            # (numeric ${...} interpolations + greedily un-escaped content
+            # quotes) before attempting to parse.
+            try:
+                return json.loads(repair_hcl2_jsonencode(json_string))
+            except json.JSONDecodeError:
+                logging.debug("Repaired jsonencode content still not parseable, trying fallbacks.")
+
             # Replace single quotes with double quotes, but only if they're not within a string
             in_string = False
             escaped = False
@@ -262,8 +330,8 @@ def clean_and_parse_json(json_string: str) -> Optional[Any]:
             try:
                 # If that fails, try to evaluate it as a Python literal
                 return ast.literal_eval(json_string)
-            except ValueError:
-                pass
+            except (ValueError, SyntaxError) as e:
+                logging.debug(f"ast.literal_eval fallback failed: {e}")
         
         # Try to parse as a plain object
         try:
