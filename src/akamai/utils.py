@@ -449,6 +449,31 @@ def format_path_pattern(values: List[str]) -> str:
     joined = "|".join(escape_and_convert(v) for v in values)
     return rf"^({joined})$"
 
+def format_regularexpression_pattern(values: List[str]) -> str:
+    """
+    Prepares a raw Akamai `regularExpression` regex (options.regex) for embedding in
+    the generated Terraform. The value is written verbatim, so backslashes must be
+    doubled (otherwise Terraform's HCL parser consumes them as escape sequences) and
+    unescaped forward slashes are rendered as \\/ to match the double-escaped style
+    of the glob-derived path/fileExtension criteria. The pattern stays functionally
+    identical to the Akamai source.
+
+    Args:
+        values (List[str]): Single-element list holding the raw regex.
+
+    Returns:
+        str: HCL-safe, double-escaped regex pattern.
+    """
+    if not values:
+        return "*"
+    regex = values[0]
+    # Double existing backslashes so sequences like \. or \d survive HCL parsing.
+    regex = regex.replace("\\", "\\\\")
+    # Escape forward slashes that are not already escaped: / -> \\/
+    # (function replacement so re.sub does not re-process the backslashes).
+    regex = re.sub(r"(?<!\\)/", lambda _m: "\\\\/", regex)
+    return regex
+
 def format_filename_pattern(values: List[str]) -> str:
     """
     Formats a list of uri path patterns into a double-escaped regex pattern.

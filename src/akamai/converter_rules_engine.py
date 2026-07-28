@@ -597,6 +597,8 @@ def process_criteria(
             elif 'variableExpression' in options:
                 values = options.get("variableExpression", ['*'])
                 values = [values]
+            elif 'regex' in options:
+                values = [options.get("regex", "")]
             else:
                 values = [options.get("value", "")]
 
